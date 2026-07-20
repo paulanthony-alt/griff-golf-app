@@ -48,9 +48,23 @@ localStorage.
   — republish from the artifact source to update; its favicon must stay ⛳; it
   cannot show the custom cart favicon (artifact limitation).
 
+## Shared live sync (Firebase) — code done, config pending
+
+The app now reads/writes a shared Firebase Realtime Database and re-renders
+live when any user changes something (see FIREBASE-SETUP.md). It ships in
+LOCAL-ONLY mode until a real config is pasted into `FIREBASE_CONFIG` at the top
+of the `<script>` in index.html (placeholders contain "PASTE_PROJECT"). Data
+model: `board/parking/<spot>`, `board/broken/<spot>`, `board/gas/<num>`.
+Per-path writes so concurrent edits don't clobber. Live-render hook:
+`window.__griffApplyRemote`. To finish: user creates a Firebase project + RTDB,
+sets rules to allow read/write on `board`, and sends the config to paste in.
+
 ## NEXT STEPS (where we stopped)
 
-1. **DNS at the domain registrar** (user's task):
+1. **Firebase config** — get it from the user and paste into FIREBASE_CONFIG,
+   then push to main (see FIREBASE-SETUP.md). This is what actually turns on
+   cross-user sharing.
+2. **DNS at the domain registrar** (user's task):
    - CNAME record: host `www` → `paulanthony-alt.github.io`
    - Optional apex A records on `@`: 185.199.108.153 / 185.199.109.153 /
      185.199.110.153 / 185.199.111.153
