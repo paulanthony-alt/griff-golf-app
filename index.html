@@ -115,7 +115,7 @@
   }
   .hint { text-align: center; font-size: .75rem; color: var(--ink-soft); margin-bottom: 12px; }
 
-  .lot-tools { display: flex; justify-content: center; margin-bottom: 12px; }
+  .lot-tools { display: flex; justify-content: center; gap: 10px; margin-bottom: 12px; }
   .erase-btn {
     display: flex; align-items: center; gap: 8px;
     padding: 10px 18px;
@@ -133,15 +133,35 @@
     color: var(--red); margin-bottom: 10px;
   }
   .erase-banner.show { display: block; }
-  body.erasing .lot .cell, body.erasing .lot2 .cell { cursor: pointer; }
-  body.erasing .cell input { cursor: pointer; }
+  body.spot-mode .lot .cell, body.spot-mode .lot2 .cell { cursor: pointer; }
+  body.spot-mode .cell input { cursor: pointer; }
+
+  .lot-summary { text-align: center; font-size: .85rem; color: var(--ink-soft); margin-bottom: 10px; }
+  .lot-summary b { color: var(--heading); }
+  .lot-summary .broken-count { color: var(--red); font-weight: 700; }
+
+  .cell.broken input { background: var(--red-soft); }
+  .cell.broken::before, .cell.broken::after {
+    content: ""; position: absolute; pointer-events: none;
+    left: 50%; top: 50%;
+  }
+  .cell.broken::after {
+    width: 32px; height: 32px;
+    transform: translate(-50%, -50%);
+    border: 2.5px solid var(--red); border-radius: 50%;
+  }
+  .cell.broken::before {
+    width: 32px;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    border-top: 2.5px solid var(--red);
+  }
 
   .lot-scroll { overflow-x: auto; padding-bottom: 4px; }
   .lot {
     display: grid; grid-template-columns: repeat(12, minmax(52px, 1fr));
     border: 1.5px solid var(--line); min-width: 640px; background: var(--card);
   }
-  .lot .cell { border: .5px solid var(--line); height: 52px; display: flex; align-items: center; justify-content: center; }
+  .lot .cell { position: relative; border: .5px solid var(--line); height: 52px; display: flex; align-items: center; justify-content: center; }
   .col-labels {
     display: grid; grid-template-columns: repeat(12, minmax(52px, 1fr));
     min-width: 640px; margin-top: 2px;
@@ -155,7 +175,7 @@
     display: grid; grid-template-columns: repeat(7, minmax(88px, 1fr));
     border: 1.5px solid var(--line); min-width: 640px; background: var(--card);
   }
-  .lot2 .cell { border: .5px solid var(--line); height: 44px; display: flex; align-items: center; justify-content: center; }
+  .lot2 .cell { position: relative; border: .5px solid var(--line); height: 44px; display: flex; align-items: center; justify-content: center; }
   .cell input {
     width: 100%; height: 100%; border: none; background: transparent;
     text-align: center; font-size: 1.05rem; font-weight: 600; color: var(--ink);
@@ -245,10 +265,12 @@
   <section class="page active" id="page-parking">
     <div class="sheet-title">PARKING LOT</div>
     <div class="hint">Tap a spot and type the cart number parked there</div>
+    <div class="lot-summary" id="lot-summary"></div>
     <div class="lot-tools">
       <button class="erase-btn" id="erase-btn" aria-pressed="false"><span class="x">✕</span> Erase a spot</button>
+      <button class="erase-btn" id="broken-btn" aria-pressed="false"><span class="x">⊘</span> Mark broken</button>
     </div>
-    <div class="erase-banner" id="erase-banner">Erase mode on — tap the cart number to remove it, or tap ✕ again to cancel</div>
+    <div class="erase-banner" id="erase-banner"></div>
     <div class="lot-scroll">
       <div class="lot" id="lot-main"></div>
       <div class="col-labels" id="lot-labels"></div>
@@ -283,9 +305,12 @@
   function load() {
     try {
       var s = JSON.parse(localStorage.getItem(KEY));
-      if (s && s.parking && s.gas) return s;
+      if (s && s.parking && s.gas) {
+        if (!s.broken) s.broken = {};
+        return s;
+      }
     } catch (e) {}
-    return { parking: {}, gas: {} };
+    return { parking: {}, gas: {}, broken: {} };
   }
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
@@ -302,24 +327,46 @@
       tab.classList.add("active");
       document.querySelectorAll(".page").forEach(function (p) { p.classList.remove("active"); });
       document.getElementById("page-" + tab.dataset.page).classList.add("active");
-      setEraseMode(false);
+      setMode(null);
       disarmClear();
     });
   });
 
-  /* ---------- Erase mode ---------- */
-  var eraseMode = false;
+  /* ---------- Spot modes: erase / broken ---------- */
+  var mode = null; // null | "erase" | "broken"
   var eraseBtn = document.getElementById("erase-btn");
-  var eraseBanner = document.getElementById("erase-banner");
+  var brokenBtn = document.getElementById("broken-btn");
+  var modeBanner = document.getElementById("erase-banner");
 
-  function setEraseMode(on) {
-    eraseMode = on;
-    eraseBtn.classList.toggle("active", on);
-    eraseBtn.setAttribute("aria-pressed", on ? "true" : "false");
-    eraseBanner.classList.toggle("show", on);
-    document.body.classList.toggle("erasing", on);
+  var BANNER_TEXT = {
+    erase: "Erase mode on — tap the cart number to remove it, or tap ✕ again to cancel",
+    broken: "Broken mode on — tap a cart number to mark it broken (tap a broken one to un-mark it), or tap ⊘ again to cancel"
+  };
+
+  function setMode(next) {
+    mode = next;
+    eraseBtn.classList.toggle("active", mode === "erase");
+    eraseBtn.setAttribute("aria-pressed", mode === "erase" ? "true" : "false");
+    brokenBtn.classList.toggle("active", mode === "broken");
+    brokenBtn.setAttribute("aria-pressed", mode === "broken" ? "true" : "false");
+    modeBanner.textContent = mode ? BANNER_TEXT[mode] : "";
+    modeBanner.classList.toggle("show", !!mode);
+    document.body.classList.toggle("spot-mode", !!mode);
   }
-  eraseBtn.addEventListener("click", function () { setEraseMode(!eraseMode); });
+  eraseBtn.addEventListener("click", function () { setMode(mode === "erase" ? null : "erase"); });
+  brokenBtn.addEventListener("click", function () { setMode(mode === "broken" ? null : "broken"); });
+
+  /* ---------- Lot summary ---------- */
+  var lotSummary = document.getElementById("lot-summary");
+  function updateLotSummary() {
+    var count = Object.keys(state.parking).length;
+    var broken = Object.keys(state.broken).length;
+    var text = "<b>" + count + "</b> cart" + (count === 1 ? "" : "s") + " in the lot";
+    if (broken > 0) {
+      text += " &nbsp;&middot;&nbsp; <span class=\"broken-count\">" + broken + " broken</span>";
+    }
+    lotSummary.innerHTML = text;
+  }
 
   /* ---------- Parking lot ---------- */
   function makeSpot(id) {
@@ -332,23 +379,42 @@
     input.maxLength = 4;
     input.setAttribute("aria-label", "Parking spot " + id);
     input.value = state.parking[id] || "";
+    if (state.broken[id] && input.value) cell.classList.add("broken");
     input.addEventListener("input", function () {
       var v = input.value.trim();
       if (v) state.parking[id] = v;
-      else delete state.parking[id];
+      else {
+        delete state.parking[id];
+        delete state.broken[id];
+        cell.classList.remove("broken");
+      }
       save();
+      updateLotSummary();
     });
-    // In erase mode the tap clears the spot instead of opening the keyboard
+    // In erase/broken mode the tap acts on the spot instead of opening the keyboard
     cell.addEventListener("pointerdown", function (e) {
-      if (!eraseMode) return;
+      if (!mode) return;
       e.preventDefault();
       if (!input.value) return;
-      input.value = "";
-      delete state.parking[id];
+      if (mode === "erase") {
+        input.value = "";
+        delete state.parking[id];
+        delete state.broken[id];
+        cell.classList.remove("broken");
+        cell.classList.add("just-erased");
+        setTimeout(function () { cell.classList.remove("just-erased"); }, 600);
+      } else {
+        if (state.broken[id]) {
+          delete state.broken[id];
+          cell.classList.remove("broken");
+        } else {
+          state.broken[id] = true;
+          cell.classList.add("broken");
+        }
+      }
       save();
-      cell.classList.add("just-erased");
-      setTimeout(function () { cell.classList.remove("just-erased"); }, 600);
-      setEraseMode(false);
+      updateLotSummary();
+      setMode(null);
     });
     cell.appendChild(input);
     return cell;
@@ -374,6 +440,7 @@
       lotOverflow.appendChild(makeSpot("OF" + orow + "-" + ocol));
     }
   }
+  updateLotSummary();
 
   /* ---------- Gas list ---------- */
   var gasGrid = document.getElementById("gas-grid");
@@ -435,8 +502,11 @@
       updateSummary();
     } else {
       state.parking = {};
+      state.broken = {};
       document.querySelectorAll(".cell input").forEach(function (i) { i.value = ""; });
-      setEraseMode(false);
+      document.querySelectorAll(".cell.broken").forEach(function (c) { c.classList.remove("broken"); });
+      setMode(null);
+      updateLotSummary();
     }
     save();
     disarmClear();
