@@ -90,8 +90,10 @@
     z-index: 10;
     box-shadow: 0 2px 6px rgba(0,0,0,.25);
   }
-  .app-head h1 { font-size: 1.15rem; letter-spacing: .5px; text-align: center; }
-  .app-head .date { text-align: center; font-size: .75rem; opacity: .85; margin-top: 2px; }
+  .head-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .logo-crest { flex: none; width: 58px; height: 47px; }
+  .app-head h1 { font-size: 1.15rem; letter-spacing: .5px; text-align: left; }
+  .app-head .date { text-align: left; font-size: .75rem; opacity: .85; margin-top: 2px; }
   .tabs { display: flex; margin-top: 10px; }
   .tab {
     flex: 1; text-align: center; padding: 10px 4px;
@@ -196,8 +198,43 @@
 </style>
 
 <header class="app-head">
-  <h1>⛳ THE GRIFF — Cart Tracker</h1>
-  <div class="date" id="today"></div>
+  <div class="head-row">
+    <svg class="logo-crest" viewBox="0 0 360 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The Griff logo — Greenwich Connecticut">
+      <ellipse cx="180" cy="145" rx="174" ry="140" fill="#ffffff"/>
+      <ellipse cx="180" cy="145" rx="171" ry="137" fill="none" stroke="#1e5631" stroke-width="4"/>
+      <ellipse cx="180" cy="145" rx="158" ry="124" fill="none" stroke="#1e5631" stroke-width="2.5"/>
+      <path id="crest-top-arc" d="M 48 145 A 132 98 0 0 1 312 145" fill="none"/>
+      <path id="crest-bot-arc" d="M 46 145 A 134 100 0 0 0 314 145" fill="none"/>
+      <text font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="31" fill="#1e5631" letter-spacing="8">
+        <textPath href="#crest-top-arc" startOffset="50%" text-anchor="middle">THE GRIFF</textPath>
+      </text>
+      <text font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="15.5" fill="#1e5631" letter-spacing="2.5">
+        <textPath href="#crest-bot-arc" startOffset="50%" text-anchor="middle">GREENWICH CONNECTICUT</textPath>
+      </text>
+      <g stroke="#1e5631" fill="none" stroke-linecap="round">
+        <path d="M 88 174 Q 180 154 272 174" stroke-width="4.5"/>
+        <path d="M 82 186 Q 180 164 278 186" stroke-width="4.5" stroke-dasharray="13 7"/>
+        <path d="M 88 198 Q 180 176 272 198" stroke-width="4.5"/>
+        <path d="M 98 209 Q 180 190 262 209" stroke-width="4.5" stroke-dasharray="11 7"/>
+        <path d="M 116 218 Q 180 202 244 218" stroke-width="4.5"/>
+      </g>
+      <g fill="#1e5631">
+        <circle cx="122" cy="110" r="17"/>
+        <circle cx="138" cy="95" r="21"/>
+        <circle cx="160" cy="88" r="22"/>
+        <circle cx="181" cy="96" r="19"/>
+        <circle cx="192" cy="112" r="15"/>
+        <circle cx="158" cy="108" r="24"/>
+        <path d="M 151 166 C 152 148 150 140 144 130 L 151 134 C 155 141 156 147 157 152 C 158 147 160 140 165 132 L 171 128 C 163 139 161 148 162 166 Z"/>
+      </g>
+      <line x1="226" y1="122" x2="226" y2="170" stroke="#1e5631" stroke-width="3.5"/>
+      <path d="M 226 122 L 254 131 L 226 141 Z" fill="#d22b2b"/>
+    </svg>
+    <div>
+      <h1>THE GRIFF — Cart Tracker</h1>
+      <div class="date" id="today"></div>
+    </div>
+  </div>
   <div class="tabs">
     <button class="tab active" data-page="parking">Parking Lot</button>
     <button class="tab" data-page="gas">Gas List</button>
