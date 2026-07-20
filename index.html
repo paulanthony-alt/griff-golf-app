@@ -357,21 +357,50 @@
   var OVERFLOW_ROWS = 2;
   var NUM_CARTS = 65;
 
-  var KEY = "griff-cart-tracker";
-  var state = load();
+  /* ===== Firebase config =====
+     Paste your Firebase project's web config below (Firebase console →
+     Project settings → "Your apps" → SDK setup & configuration → Config).
+     Until databaseURL is filled in, the app runs in LOCAL-ONLY mode: it
+     saves on this one device and does NOT share between users. */
+  var FIREBASE_CONFIG = {
+    apiKey: "PASTE_API_KEY",
+    authDomain: "PASTE_PROJECT.firebaseapp.com",
+    databaseURL: "https://PASTE_PROJECT-default-rtdb.firebaseio.com",
+    projectId: "PASTE_PROJECT",
+    appId: "PASTE_APP_ID"
+  };
+  var cloudConfigured = FIREBASE_CONFIG.databaseURL.indexOf("PASTE_PROJECT") === -1;
 
-  function load() {
+  var LKEY = "griff-cart-tracker";
+  var cloud = false;   // becomes true once Firebase is connected
+  var fb = null;       // Firebase helpers, filled in on connect
+  var state = cloudConfigured ? { parking: {}, gas: {}, broken: {} } : loadLocal();
+
+  /* element maps so remote updates can re-render the board live */
+  var spotInputs = {};
+  var spotCells = {};
+  var gasButtons = {};
+
+  function loadLocal() {
     try {
-      var s = JSON.parse(localStorage.getItem(KEY));
-      if (s && s.parking && s.gas) {
-        if (!s.broken) s.broken = {};
-        return s;
-      }
+      var s = JSON.parse(localStorage.getItem(LKEY));
+      if (s && s.parking && s.gas) { if (!s.broken) s.broken = {}; return s; }
     } catch (e) {}
     return { parking: {}, gas: {}, broken: {} };
   }
-  function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  function saveLocal() {
+    try { localStorage.setItem(LKEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  /* Persist a single path — to the shared cloud when connected,
+     otherwise to this device as a fallback. */
+  function writePath(path, val) {
+    if (cloud) { try { fb.set(fb.ref(fb.db, "board/" + path), val); } catch (e) {} }
+    else saveLocal();
+  }
+  function removePath(path) {
+    if (cloud) { try { fb.remove(fb.ref(fb.db, "board/" + path)); } catch (e) {} }
+    else saveLocal();
   }
 
   document.getElementById("today").textContent =
@@ -438,15 +467,19 @@
     input.setAttribute("aria-label", "Parking spot " + id);
     input.value = state.parking[id] || "";
     if (state.broken[id] && input.value) cell.classList.add("broken");
+    spotInputs[id] = input;
+    spotCells[id] = cell;
     input.addEventListener("input", function () {
       var v = input.value.trim();
-      if (v) state.parking[id] = v;
+      if (v) { state.parking[id] = v; writePath("parking/" + id, v); }
       else {
         delete state.parking[id];
+        var wasBroken = state.broken[id];
         delete state.broken[id];
         cell.classList.remove("broken");
+        removePath("parking/" + id);
+        if (wasBroken) removePath("broken/" + id);
       }
-      save();
       updateLotSummary();
     });
     // In erase/broken mode the tap acts on the spot instead of opening the keyboard
@@ -457,20 +490,24 @@
       if (mode === "erase") {
         input.value = "";
         delete state.parking[id];
+        var wasBroken = state.broken[id];
         delete state.broken[id];
         cell.classList.remove("broken");
         cell.classList.add("just-erased");
         setTimeout(function () { cell.classList.remove("just-erased"); }, 600);
+        removePath("parking/" + id);
+        if (wasBroken) removePath("broken/" + id);
       } else {
         if (state.broken[id]) {
           delete state.broken[id];
           cell.classList.remove("broken");
+          removePath("broken/" + id);
         } else {
           state.broken[id] = true;
           cell.classList.add("broken");
+          writePath("broken/" + id, true);
         }
       }
-      save();
       updateLotSummary();
       setMode(null);
     });
@@ -517,15 +554,17 @@
       btn.className = "gas-btn";
       btn.textContent = num;
       if (state.gas[num]) btn.classList.add("done");
+      gasButtons[num] = btn;
       btn.addEventListener("click", function () {
         if (state.gas[num]) {
           delete state.gas[num];
           btn.classList.remove("done");
+          removePath("gas/" + num);
         } else {
           state.gas[num] = true;
           btn.classList.add("done");
+          writePath("gas/" + num, true);
         }
-        save();
         updateSummary();
       });
       gasGrid.appendChild(btn);
@@ -557,6 +596,7 @@
     if (onGas) {
       state.gas = {};
       document.querySelectorAll(".gas-btn").forEach(function (b) { b.classList.remove("done"); });
+      removePath("gas");
       updateSummary();
     } else {
       state.parking = {};
@@ -564,11 +604,61 @@
       document.querySelectorAll(".cell input").forEach(function (i) { i.value = ""; });
       document.querySelectorAll(".cell.broken").forEach(function (c) { c.classList.remove("broken"); });
       setMode(null);
+      removePath("parking");
+      removePath("broken");
       updateLotSummary();
     }
-    save();
     disarmClear();
   });
+
+  /* ---------- Live sync ---------- */
+  // Re-draw the whole board from `state` (used when a remote change arrives).
+  function applyState() {
+    Object.keys(spotInputs).forEach(function (id) {
+      var input = spotInputs[id], cell = spotCells[id];
+      var val = state.parking[id] || "";
+      // don't yank the value out from under someone who's mid-edit
+      if (document.activeElement !== input) input.value = val;
+      cell.classList.toggle("broken", !!(state.broken[id] && input.value));
+    });
+    Object.keys(gasButtons).forEach(function (num) {
+      gasButtons[num].classList.toggle("done", !!state.gas[num]);
+    });
+    updateLotSummary();
+    updateSummary();
+  }
+
+  function applyRemote(data) {
+    data = data || {};
+    state = {
+      parking: data.parking || {},
+      gas: data.gas || {},
+      broken: data.broken || {}
+    };
+    applyState();
+  }
+  window.__griffApplyRemote = applyRemote; // debug/testing hook
+
+  // Connect to the shared database (only if a real config was pasted in).
+  if (cloudConfigured) {
+    var BASE = "https://www.gstatic.com/firebasejs/10.12.5/";
+    Promise.all([
+      import(BASE + "firebase-app.js"),
+      import(BASE + "firebase-database.js")
+    ]).then(function (mods) {
+      var appMod = mods[0], dbMod = mods[1];
+      var app = appMod.initializeApp(FIREBASE_CONFIG);
+      var db = dbMod.getDatabase(app);
+      fb = { db: db, ref: dbMod.ref, set: dbMod.set, remove: dbMod.remove };
+      cloud = true;
+      dbMod.onValue(dbMod.ref(db, "board"), function (snap) {
+        applyRemote(snap.val());
+      });
+    }).catch(function () {
+      /* SDK blocked or offline — stay in local mode; the app still works
+         on this device, it just won't sync until it can reach Firebase. */
+    });
+  }
 })();
 
 /* ---------- Password gate ---------- */
