@@ -268,7 +268,7 @@
     <div class="lot-summary" id="lot-summary"></div>
     <div class="lot-tools">
       <button class="erase-btn" id="erase-btn" aria-pressed="false"><span class="x">✕</span> Erase a spot</button>
-      <button class="erase-btn" id="broken-btn" aria-pressed="false"><span class="x">⊘</span> Mark broken</button>
+      <button class="erase-btn" id="broken-btn" aria-pressed="false"><span class="x">⊘</span> Mark Unserviceable</button>
     </div>
     <div class="erase-banner" id="erase-banner"></div>
     <div class="lot-scroll">
@@ -340,7 +340,7 @@
 
   var BANNER_TEXT = {
     erase: "Erase mode on — tap the cart number to remove it, or tap ✕ again to cancel",
-    broken: "Broken mode on — tap a cart number to mark it broken (tap a broken one to un-mark it), or tap ⊘ again to cancel"
+    broken: "Unserviceable mode on — tap a cart number to mark it unserviceable (tap a marked one to un-mark it), or tap ⊘ again to cancel"
   };
 
   function setMode(next) {
@@ -363,7 +363,7 @@
     var broken = Object.keys(state.broken).length;
     var text = "<b>" + count + "</b> cart" + (count === 1 ? "" : "s") + " in the lot";
     if (broken > 0) {
-      text += " &nbsp;&middot;&nbsp; <span class=\"broken-count\">" + broken + " broken</span>";
+      text += " &nbsp;&middot;&nbsp; <span class=\"broken-count\">" + broken + " unserviceable</span>";
     }
     lotSummary.innerHTML = text;
   }
