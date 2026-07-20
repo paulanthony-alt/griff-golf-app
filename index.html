@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1e5631">
+<title>The Griff — Cart Tracker</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --green: #1e5631;
+    --green-dark: #143d22;
+    --green-light: #e8f2ea;
+    --line: #444;
+    --paper: #f7f7f4;
+    --red: #c0392b;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--paper);
+    color: #222;
+    min-height: 100vh;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    background: var(--green);
+    color: #fff;
+    padding: 12px 16px 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 6px rgba(0,0,0,.25);
+  }
+  header h1 {
+    font-size: 1.15rem;
+    letter-spacing: .5px;
+    text-align: center;
+  }
+  header .date {
+    text-align: center;
+    font-size: .75rem;
+    opacity: .85;
+    margin-top: 2px;
+  }
+  .tabs {
+    display: flex;
+    margin-top: 10px;
+  }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 4px;
+    font-size: .95rem;
+    font-weight: 600;
+    color: rgba(255,255,255,.7);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+  }
+  .tab.active {
+    color: #fff;
+    border-bottom-color: #fff;
+  }
+
+  main { padding: 14px 10px 90px; max-width: 900px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .sheet-title {
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+    color: var(--green-dark);
+  }
+  .hint {
+    text-align: center;
+    font-size: .75rem;
+    color: #777;
+    margin-bottom: 12px;
+  }
+
+  /* ---------- Parking lot ---------- */
+  .lot-scroll { overflow-x: auto; padding-bottom: 4px; }
+  .lot {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(52px, 1fr));
+    border: 1.5px solid var(--line);
+    min-width: 640px;
+    background: #fff;
+  }
+  .lot .cell {
+    border: .5px solid var(--line);
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .col-labels {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(52px, 1fr));
+    min-width: 640px;
+    margin-top: 2px;
+  }
+  .col-labels div {
+    text-align: center;
+    font-weight: 700;
+    font-size: .9rem;
+    color: var(--green-dark);
+  }
+  .overflow-label {
+    text-align: center;
+    font-weight: 700;
+    font-size: .8rem;
+    letter-spacing: 1px;
+    color: var(--green-dark);
+    margin: 14px 0 4px;
+  }
+  .lot2 {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(88px, 1fr));
+    border: 1.5px solid var(--line);
+    min-width: 640px;
+    background: #fff;
+  }
+  .lot2 .cell {
+    border: .5px solid var(--line);
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cell input {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    text-align: center;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #222;
+    outline: none;
+  }
+  .cell input:focus { background: var(--green-light); }
+  .cell input:not(:placeholder-shown) { background: var(--green-light); }
+
+  /* ---------- Gas list ---------- */
+  .gas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+    gap: 8px;
+  }
+  .gas-btn {
+    position: relative;
+    height: 52px;
+    border: 1.5px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #222;
+    cursor: pointer;
+  }
+  .gas-btn.done {
+    background: var(--green-light);
+    border-color: var(--green);
+    color: var(--green-dark);
+  }
+  .gas-btn.done::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 50%;
+    border-top: 2.5px solid var(--red);
+    transform: rotate(-12deg);
+  }
+  .gas-summary {
+    text-align: center;
+    font-size: .85rem;
+    color: #555;
+    margin: 12px 0;
+  }
+  .gas-summary b { color: var(--green-dark); }
+
+  /* ---------- Bottom bar ---------- */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-top: 1px solid #ddd;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+  .bar-btn {
+    flex: 1;
+    max-width: 220px;
+    padding: 12px;
+    font-size: .95rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1.5px solid var(--green);
+    background: #fff;
+    color: var(--green);
+    cursor: pointer;
+  }
+  .bar-btn.danger { border-color: var(--red); color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⛳ THE GRIFF — Cart Tracker</h1>
+  <div class="date" id="today"></div>
+  <div class="tabs">
+    <button class="tab active" data-page="parking">Parking Lot</button>
+    <button class="tab" data-page="gas">Gas List</button>
+  </div>
+</header>
+
+<main>
+  <!-- ============ PARKING LOT ============ -->
+  <section class="page active" id="page-parking">
+    <div class="sheet-title">PARKING LOT</div>
+    <div class="hint">Tap a spot and type the cart number parked there</div>
+
+    <div class="lot-scroll">
+      <div class="lot" id="lot-main"></div>
+      <div class="col-labels" id="lot-labels"></div>
+
+      <div class="overflow-label">OVERFLOW ROW</div>
+      <div class="lot2" id="lot-overflow"></div>
+    </div>
+  </section>
+
+  <!-- ============ GAS LIST ============ -->
+  <section class="page" id="page-gas">
+    <div class="sheet-title">GAS LIST</div>
+    <div class="hint">Tap a cart number to cross it off once it has gas</div>
+
+    <div class="gas-summary" id="gas-summary"></div>
+    <div class="gas-grid" id="gas-grid"></div>
+  </section>
+</main>
+
+<div class="bottom-bar">
+  <button class="bar-btn danger" id="clear-btn">Clear Sheet</button>
+</div>
+
+<script>
+(function () {
+  var COLS = ["A","B","C","D","E","F","G","H","I","J","K","L"];
+  var ROWS_PER_COL = 4;        // 4 spots deep in each lettered column
+  var OVERFLOW_COLS = 7;       // bottom section: 7 wide spots
+  var OVERFLOW_ROWS = 2;       //   x 2 rows
+  var NUM_CARTS = 65;          // gas list runs 1–65
+
+  var KEY = "griff-cart-tracker";
+  var state = load();
+
+  function load() {
+    try {
+      var s = JSON.parse(localStorage.getItem(KEY));
+      if (s && s.parking && s.gas) return s;
+    } catch (e) {}
+    return { parking: {}, gas: {} };
+  }
+  function save() {
+    localStorage.setItem(KEY, JSON.stringify(state));
+  }
+
+  /* ---------- Header date ---------- */
+  document.getElementById("today").textContent =
+    new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
+  /* ---------- Tabs ---------- */
+  var tabs = document.querySelectorAll(".tab");
+  tabs.forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      tabs.forEach(function (t) { t.classList.remove("active"); });
+      tab.classList.add("active");
+      document.querySelectorAll(".page").forEach(function (p) { p.classList.remove("active"); });
+      document.getElementById("page-" + tab.dataset.page).classList.add("active");
+    });
+  });
+
+  /* ---------- Parking lot ---------- */
+  function makeSpot(id) {
+    var cell = document.createElement("div");
+    cell.className = "cell";
+    var input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "numeric";
+    input.placeholder = " ";
+    input.maxLength = 4;
+    input.setAttribute("aria-label", "Parking spot " + id);
+    input.value = state.parking[id] || "";
+    input.addEventListener("input", function () {
+      var v = input.value.trim();
+      if (v) state.parking[id] = v;
+      else delete state.parking[id];
+      save();
+    });
+    cell.appendChild(input);
+    return cell;
+  }
+
+  var lotMain = document.getElementById("lot-main");
+  // build row by row so the grid reads like the sheet (row 1 = back row)
+  for (var r = 1; r <= ROWS_PER_COL; r++) {
+    for (var c = 0; c < COLS.length; c++) {
+      lotMain.appendChild(makeSpot(COLS[c] + r));
+    }
+  }
+
+  var labels = document.getElementById("lot-labels");
+  COLS.forEach(function (l) {
+    var d = document.createElement("div");
+    d.textContent = l;
+    labels.appendChild(d);
+  });
+
+  var lotOverflow = document.getElementById("lot-overflow");
+  for (var orow = 1; orow <= OVERFLOW_ROWS; orow++) {
+    for (var ocol = 1; ocol <= OVERFLOW_COLS; ocol++) {
+      lotOverflow.appendChild(makeSpot("OF" + orow + "-" + ocol));
+    }
+  }
+
+  /* ---------- Gas list ---------- */
+  var gasGrid = document.getElementById("gas-grid");
+  var gasSummary = document.getElementById("gas-summary");
+
+  function updateSummary() {
+    var done = Object.keys(state.gas).length;
+    gasSummary.innerHTML =
+      "<b>" + done + "</b> of <b>" + NUM_CARTS + "</b> carts gassed &nbsp;·&nbsp; " +
+      "<b>" + (NUM_CARTS - done) + "</b> still need gas";
+  }
+
+  for (var n = 1; n <= NUM_CARTS; n++) {
+    (function (num) {
+      var btn = document.createElement("button");
+      btn.className = "gas-btn";
+      btn.textContent = num;
+      if (state.gas[num]) btn.classList.add("done");
+      btn.addEventListener("click", function () {
+        if (state.gas[num]) {
+          delete state.gas[num];
+          btn.classList.remove("done");
+        } else {
+          state.gas[num] = true;
+          btn.classList.add("done");
+        }
+        save();
+        updateSummary();
+      });
+      gasGrid.appendChild(btn);
+    })(n);
+  }
+  updateSummary();
+
+  /* ---------- Clear ---------- */
+  document.getElementById("clear-btn").addEventListener("click", function () {
+    var onGas = document.getElementById("page-gas").classList.contains("active");
+    var which = onGas ? "Gas List" : "Parking Lot";
+    if (!confirm("Clear the " + which + " and start a fresh sheet?")) return;
+    if (onGas) {
+      state.gas = {};
+      document.querySelectorAll(".gas-btn").forEach(function (b) { b.classList.remove("done"); });
+      updateSummary();
+    } else {
+      state.parking = {};
+      document.querySelectorAll(".cell input").forEach(function (i) { i.value = ""; });
+    }
+    save();
+  });
+})();
+</script>
+</body>
+</html>
