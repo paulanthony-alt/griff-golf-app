@@ -21,4 +21,6 @@ No build step, no server, no dependencies — it's a single `index.html`.
 - Open `index.html` directly in any browser, **or**
 - Enable GitHub Pages for this repo (Settings → Pages → deploy from branch)
   and staff can use it from any phone at the published URL. Once opened, add
-  it to the home screen for one-tap access.
+  it to the home screen for one-tap access — it installs with a white golf
+  cart icon on The Griff's green (`apple-touch-icon.png`, `icon-192.png`,
+  `icon-512.png`, wired up via `manifest.webmanifest`).
