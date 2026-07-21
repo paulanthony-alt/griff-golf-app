@@ -97,6 +97,17 @@
   .logo-crest { flex: none; width: 58px; height: 47px; }
   .app-head h1 { font-size: 1.15rem; letter-spacing: .5px; text-align: left; }
   .app-head .date { text-align: left; font-size: .75rem; opacity: .85; margin-top: 2px; }
+  .conn {
+    position: absolute; top: 8px; right: 10px;
+    font-size: .62rem; font-weight: 700; letter-spacing: .3px;
+    padding: 3px 9px; border-radius: 999px;
+    background: rgba(255,255,255,.16); color: #fff;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .conn::before { content: "●"; font-size: .7rem; line-height: 1; }
+  .conn[data-state="live"] { background: rgba(255,255,255,.92); color: #143d22; }
+  .conn[data-state="connecting"] { color: #ffe9a8; }
+  .conn[data-state="local"] { color: #ffd7d2; }
   .tabs { display: flex; margin-top: 10px; }
   .tab {
     flex: 1; text-align: center; padding: 10px 4px;
@@ -276,6 +287,7 @@
 </div>
 
 <header class="app-head">
+  <div class="conn" id="conn" data-state="local" title="Shared connection status">Local only</div>
   <div class="head-row">
     <svg class="logo-crest" viewBox="0 0 360 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The Griff logo — Greenwich Connecticut">
       <ellipse cx="180" cy="145" rx="174" ry="140" fill="#ffffff"/>
@@ -380,6 +392,15 @@
   var spotInputs = {};
   var spotCells = {};
   var gasButtons = {};
+
+  /* connection badge in the header */
+  var connEl = document.getElementById("conn");
+  function setConn(stateName) {
+    if (!connEl) return;
+    connEl.setAttribute("data-state", stateName);
+    connEl.textContent = stateName === "live" ? "Live"
+      : stateName === "connecting" ? "Connecting…" : "Local only";
+  }
 
   function loadLocal() {
     try {
@@ -641,6 +662,7 @@
 
   // Connect to the shared database (only if a real config was pasted in).
   if (cloudConfigured) {
+    setConn("connecting");
     var BASE = "https://www.gstatic.com/firebasejs/10.12.5/";
     Promise.all([
       import(BASE + "firebase-app.js"),
@@ -651,12 +673,17 @@
       var db = dbMod.getDatabase(app);
       fb = { db: db, ref: dbMod.ref, set: dbMod.set, remove: dbMod.remove };
       cloud = true;
+      // Firebase's built-in "am I connected?" flag drives the badge.
+      dbMod.onValue(dbMod.ref(db, ".info/connected"), function (s) {
+        setConn(s.val() ? "live" : "connecting");
+      });
       dbMod.onValue(dbMod.ref(db, "board"), function (snap) {
         applyRemote(snap.val());
       });
     }).catch(function () {
       /* SDK blocked or offline — stay in local mode; the app still works
          on this device, it just won't sync until it can reach Firebase. */
+      setConn("local");
     });
   }
 })();
