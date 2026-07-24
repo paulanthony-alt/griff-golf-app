@@ -165,6 +165,12 @@
   .chat-input input:focus { border-color: var(--green); }
   .chat-input button { border: none; background: var(--green); color: #fff; border-radius: 9px; padding: 0 16px; font-weight: 700; cursor: pointer; }
 
+  .notif-bar { display: none; padding: 10px 12px 0; }
+  .notif-bar.show { display: block; }
+  .notif-enable { width: 100%; padding: 11px; border: 1.5px solid var(--green); border-radius: 9px;
+    background: var(--spot-filled); color: var(--heading); font-weight: 700; font-size: .9rem; cursor: pointer; }
+  .notif-hint { font-size: .72rem; color: var(--ink-soft); margin-top: 6px; text-align: center; }
+
   .alert-item { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--bar-border); border-radius: 10px; background: var(--paper); }
   .alert-item .ico { font-size: 1.15rem; line-height: 1.4; }
   .alert-item .body { flex: 1; }
@@ -488,6 +494,10 @@
   <div class="drawer-head">
     <div class="htext"><h3>Alerts</h3><div class="sub">Gas updates &amp; cart requests</div></div>
     <button class="close" data-close="alert" aria-label="Close alerts">&times;</button>
+  </div>
+  <div class="notif-bar" id="notif-bar">
+    <button class="notif-enable" id="notif-enable">🔔 Turn on phone notifications</button>
+    <div class="notif-hint" id="notif-hint"></div>
   </div>
   <div class="alert-list" id="alert-list"></div>
 </aside>
@@ -944,7 +954,7 @@
   /* ----- notification delivery (toast + sound + vibrate) ----- */
   function notify(a) {
     showToast((a.kind === "gas" ? "⛽ " : "🛺 ") + a.text, "alert");
-    beep(); vibrate();
+    beep(); vibrate(); systemNotify(a);
   }
   function showToast(text, which) {
     var t = document.createElement("div");
@@ -967,6 +977,48 @@
     } catch (e) {}
   }
   function vibrate() { try { if (navigator.vibrate) navigator.vibrate([180, 80, 180]); } catch (e) {} }
+
+  /* ----- phone (OS) notifications — test site only for now ----- */
+  var swReg = null;
+  var NOTIF_OK = ("Notification" in window);
+  function systemNotify(a) {
+    if (!IS_TEST || !NOTIF_OK || Notification.permission !== "granted") return;
+    var title = a.kind === "gas" ? "⛽ Carts gassed" : "🛺 Carts needed";
+    var opts = { body: a.text, tag: "griff-" + a.kind, renotify: true };
+    try {
+      if (swReg && swReg.showNotification) swReg.showNotification(title, opts);
+      else new Notification(title, opts);
+    } catch (e) {}
+  }
+  function setupNotifications() {
+    if (!IS_TEST) return;
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js").then(function (reg) { swReg = reg; }).catch(function () {});
+    }
+    var bar = document.getElementById("notif-bar");
+    var btn = document.getElementById("notif-enable");
+    var hint = document.getElementById("notif-hint");
+    if (!bar) return;
+    function refresh() {
+      if (!NOTIF_OK) {
+        bar.classList.add("show"); btn.style.display = "none";
+        hint.textContent = "This browser can't show phone notifications here. On iPhone, add the site to your Home Screen and reopen it, then try again.";
+        return;
+      }
+      if (Notification.permission === "granted") { bar.classList.remove("show"); }
+      else if (Notification.permission === "denied") {
+        bar.classList.add("show"); btn.style.display = "none";
+        hint.textContent = "Notifications are blocked for this site in your browser settings — turn them back on there to use this.";
+      } else {
+        bar.classList.add("show"); btn.style.display = ""; hint.textContent = "";
+      }
+    }
+    if (btn) btn.addEventListener("click", function () {
+      if (!NOTIF_OK) return;
+      Notification.requestPermission().then(function () { refresh(); });
+    });
+    refresh();
+  }
 
   /* ----- request carts (shop -> range) ----- */
   var requestBtn = document.getElementById("request-btn");
@@ -1037,6 +1089,7 @@
     if (tcLeft) { var chip = document.createElement("span"); chip.className = "test-chip"; chip.textContent = "TEST"; tcLeft.appendChild(chip); }
     try { document.title = "TEST · The Griff Cart Tracker"; } catch (e) {}
   }
+  setupNotifications();
 
   // Connect to the shared database (only if a real config was pasted in).
   if (cloudConfigured) {
