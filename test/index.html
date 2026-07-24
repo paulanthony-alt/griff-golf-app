@@ -453,7 +453,7 @@
     </div>
     <div class="erase-banner" id="erase-banner"></div>
     <div class="lot-actions">
-      <button class="request-btn" id="request-btn" title="Alert the range staff that more carts are needed">🛺 Request carts from range</button>
+      <button class="request-btn" id="request-btn" title="Ask the range staff for a new cart list — the lot is almost empty">🛺 Request a new cart list</button>
     </div>
     <div class="lot-scroll">
       <div class="lot" id="lot-main"></div>
@@ -1026,7 +1026,7 @@
     showToast((a.kind === "gas" ? "⛽ " : "🛺 ") + a.text, "alert");
     beep(); vibrate();
     // Phone push only for cart requests — gas updates stay in-app / in the list.
-    if (a.kind === "carts") pushNotify("🛺 Carts needed", a.text, "griff-carts");
+    if (a.kind === "carts") pushNotify("🛺 New cart list requested", a.text, "griff-carts");
   }
   function showToast(text, which) {
     var t = document.createElement("div");
@@ -1110,7 +1110,7 @@
   requestBtn.addEventListener("click", function () {
     ensureRole(function () {
       var who = myName || (myRole === "Shop" ? "Shop" : (myRole || "Shop"));
-      sendAlert("carts", who + " needs carts brought up to the lot");
+      sendAlert("carts", who + " is requesting a new cart list — the lot is almost empty");
       requestBtn.classList.add("sent");
       var orig = requestBtn.textContent;
       requestBtn.textContent = "✓ Range notified";
