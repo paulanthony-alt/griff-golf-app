@@ -330,6 +330,10 @@
   }
   .bar-btn.armed { background: var(--red); color: #fff; }
   .bar-btn:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  .undo-btn { display: none; padding: 12px 16px; font-size: .95rem; font-weight: 600;
+    border-radius: 8px; border: 1.5px solid var(--green); background: var(--bar-bg); color: var(--green); cursor: pointer; }
+  .undo-btn.show { display: inline-flex; align-items: center; gap: 6px; }
+  .undo-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 
   /* ---------- Password gate ---------- */
   body.locked { overflow: hidden; }
@@ -468,6 +472,7 @@
 </main>
 
 <div class="bottom-bar">
+  <button class="undo-btn" id="undo-btn">↶ Undo</button>
   <button class="bar-btn" id="clear-btn">Clear Sheet</button>
 </div>
 
@@ -587,6 +592,49 @@
     else saveLocal();
   }
 
+  /* ---------- Undo (single level) ---------- */
+  var undoBtn = document.getElementById("undo-btn");
+  var lastUndo = null;
+  function setUndo(fn) {
+    lastUndo = fn;
+    if (undoBtn) undoBtn.classList.toggle("show", !!fn);
+  }
+  if (undoBtn) undoBtn.addEventListener("click", function () {
+    if (!lastUndo) return;
+    var fn = lastUndo; setUndo(null); fn();
+  });
+  function restoreSpot(id, val, broken) {
+    var input = spotInputs[id], cell = spotCells[id];
+    if (val) { state.parking[id] = val; writePath("parking/" + id, val); }
+    else { delete state.parking[id]; removePath("parking/" + id); }
+    if (broken && val) { state.broken[id] = true; writePath("broken/" + id, true); }
+    else { delete state.broken[id]; removePath("broken/" + id); }
+    if (input) input.value = val || "";
+    if (cell) cell.classList.toggle("broken", !!(broken && val));
+    updateLotSummary();
+  }
+  function restoreGas(num, on) {
+    if (on) { state.gas[num] = true; writePath("gas/" + num, true); }
+    else { delete state.gas[num]; removePath("gas/" + num); }
+    if (gasButtons[num]) gasButtons[num].classList.toggle("done", !!on);
+    updateSummary();
+  }
+  function restoreParkingAll(pk, bk) {
+    state.parking = {}; for (var k in pk) state.parking[k] = pk[k];
+    state.broken = {}; for (var j in bk) state.broken[j] = bk[j];
+    if (cloud) { try {
+      fb.set(fb.ref(fb.db, DATA_NS + "board/parking"), Object.keys(pk).length ? pk : null);
+      fb.set(fb.ref(fb.db, DATA_NS + "board/broken"), Object.keys(bk).length ? bk : null);
+    } catch (e) {} } else saveLocal();
+    applyState();
+  }
+  function restoreGasAll(g) {
+    state.gas = {}; for (var k in g) state.gas[k] = g[k];
+    if (cloud) { try { fb.set(fb.ref(fb.db, DATA_NS + "board/gas"), Object.keys(g).length ? g : null); } catch (e) {} }
+    else saveLocal();
+    applyState();
+  }
+
   document.getElementById("today").textContent =
     new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
@@ -653,6 +701,10 @@
     if (state.broken[id] && input.value) cell.classList.add("broken");
     spotInputs[id] = input;
     spotCells[id] = cell;
+    input.addEventListener("focus", function () {
+      input.dataset.pv = state.parking[id] || "";
+      input.dataset.pb = state.broken[id] ? "1" : "";
+    });
     input.addEventListener("input", function () {
       var v = input.value.trim();
       if (v) { state.parking[id] = v; writePath("parking/" + id, v); }
@@ -665,22 +717,24 @@
         if (wasBroken) removePath("broken/" + id);
       }
       updateLotSummary();
+      var pv = input.dataset.pv || "", pb = input.dataset.pb === "1";
+      setUndo(function () { restoreSpot(id, pv, pb); });
     });
     // In erase/broken mode the tap acts on the spot instead of opening the keyboard
     cell.addEventListener("pointerdown", function (e) {
       if (!mode) return;
       e.preventDefault();
       if (!input.value) return;
+      var prevVal = input.value, prevBroken = !!state.broken[id];
       if (mode === "erase") {
         input.value = "";
         delete state.parking[id];
-        var wasBroken = state.broken[id];
         delete state.broken[id];
         cell.classList.remove("broken");
         cell.classList.add("just-erased");
         setTimeout(function () { cell.classList.remove("just-erased"); }, 600);
         removePath("parking/" + id);
-        if (wasBroken) removePath("broken/" + id);
+        if (prevBroken) removePath("broken/" + id);
       } else {
         if (state.broken[id]) {
           delete state.broken[id];
@@ -693,6 +747,7 @@
         }
       }
       updateLotSummary();
+      setUndo(function () { restoreSpot(id, prevVal, prevBroken); });
       setMode(null);
     });
     cell.appendChild(input);
@@ -740,6 +795,7 @@
       if (state.gas[num]) btn.classList.add("done");
       gasButtons[num] = btn;
       btn.addEventListener("click", function () {
+        var wasDone = !!state.gas[num];
         if (state.gas[num]) {
           delete state.gas[num];
           btn.classList.remove("done");
@@ -751,6 +807,7 @@
           queueGasAlert(num);
         }
         updateSummary();
+        setUndo(function () { restoreGas(num, wasDone); });
       });
       gasGrid.appendChild(btn);
     })(n);
@@ -779,11 +836,15 @@
       return;
     }
     if (onGas) {
+      var prevGas = {}; for (var gk in state.gas) prevGas[gk] = state.gas[gk];
       state.gas = {};
       document.querySelectorAll(".gas-btn").forEach(function (b) { b.classList.remove("done"); });
       removePath("gas");
       updateSummary();
+      setUndo(function () { restoreGasAll(prevGas); });
     } else {
+      var prevParking = {}; for (var ppk in state.parking) prevParking[ppk] = state.parking[ppk];
+      var prevBrokenMap = {}; for (var pbk in state.broken) prevBrokenMap[pbk] = state.broken[pbk];
       state.parking = {};
       state.broken = {};
       document.querySelectorAll(".cell input").forEach(function (i) { i.value = ""; });
@@ -792,6 +853,7 @@
       removePath("parking");
       removePath("broken");
       updateLotSummary();
+      setUndo(function () { restoreParkingAll(prevParking, prevBrokenMap); });
     }
     disarmClear();
   });
