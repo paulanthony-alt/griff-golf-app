@@ -904,6 +904,14 @@
     if (typeof m.ts !== "number") m.ts = Date.now();
     chatMsgs.push(m);
     renderChat();
+    // New message from someone else → notify (toast + phone push), unless the
+    // chat panel is already open. Skipped during the initial history load.
+    if (m.by !== deviceId && liveAlertsReady && !chatDrawer.classList.contains("open")) {
+      var who = m.name ? (m.name + " · " + (m.role || "")) : (m.role || "Staff");
+      showToast("💬 " + who + ": " + m.text, "chat");
+      beep(); vibrate();
+      pushNotify("💬 " + who, m.text, "griff-chat");
+    }
     updateBadges();
   }
   function sendChat(text) {
@@ -955,7 +963,9 @@
   /* ----- notification delivery (toast + sound + vibrate) ----- */
   function notify(a) {
     showToast((a.kind === "gas" ? "⛽ " : "🛺 ") + a.text, "alert");
-    beep(); vibrate(); systemNotify(a);
+    beep(); vibrate();
+    // Phone push only for cart requests — gas updates stay in-app / in the list.
+    if (a.kind === "carts") pushNotify("🛺 Carts needed", a.text, "griff-carts");
   }
   function showToast(text, which) {
     var t = document.createElement("div");
@@ -982,10 +992,9 @@
   /* ----- phone (OS) notifications — test site only for now ----- */
   var swReg = null;
   var NOTIF_OK = ("Notification" in window);
-  function systemNotify(a) {
+  function pushNotify(title, body, tag) {
     if (!NOTIF_OK || Notification.permission !== "granted") return;
-    var title = a.kind === "gas" ? "⛽ Carts gassed" : "🛺 Carts needed";
-    var opts = { body: a.text, tag: "griff-" + a.kind, renotify: true };
+    var opts = { body: body, tag: tag || "griff", renotify: true };
     try {
       if (swReg && swReg.showNotification) swReg.showNotification(title, opts);
       else new Notification(title, opts);
@@ -1024,12 +1033,7 @@
     if (testBtn) testBtn.addEventListener("click", function () {
       showToast("📲 Test notification sent to this device", "alert");
       beep(); vibrate();
-      try {
-        var title = "⛳ The Griff — Test";
-        var opts = { body: "If you can see this, notifications are working!", tag: "griff-test", renotify: true };
-        if (swReg && swReg.showNotification) swReg.showNotification(title, opts);
-        else if (NOTIF_OK && Notification.permission === "granted") new Notification(title, opts);
-      } catch (e) {}
+      pushNotify("⛳ The Griff — Test", "If you can see this, notifications are working!", "griff-test");
     });
     refresh();
   }

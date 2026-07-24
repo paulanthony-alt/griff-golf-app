@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#1e5631">
 <title>TEST · The Griff — Cart Tracker</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%3E%3Crect%20width='512'%20height='512'%20rx='96'%20fill='%23b8860b'/%3E%3Cg%20fill='%23fff'%3E%3Crect%20x='96'%20y='118'%20width='304'%20height='26'%20rx='13'/%3E%3Crect%20x='122'%20y='138'%20width='18'%20height='140'/%3E%3Cpath%20d='M372%20138L392%20138L420%20300L398%20300Z'/%3E%3Crect%20x='160'%20y='200'%20width='26'%20height='100'%20rx='8'/%3E%3Crect%20x='160'%20y='272'%20width='120'%20height='30'%20rx='10'/%3E%3Cpath%20d='M76%20310L436%20310Q448%20310%20448%20322L448%20358Q448%20370%20436%20370L76%20370Q64%20370%2064%20358L64%20322Q64%20310%2076%20310Z'/%3E%3Ccircle%20cx='150'%20cy='386'%20r='46'/%3E%3Ccircle%20cx='368'%20cy='386'%20r='46'/%3E%3C/g%3E%3Ccircle%20cx='150'%20cy='386'%20r='20'%20fill='%23b8860b'/%3E%3Ccircle%20cx='368'%20cy='386'%20r='20'%20fill='%23b8860b'/%3E%3C/svg%3E">
+
 </head>
 <body>
 <style>
@@ -902,6 +903,14 @@
     if (typeof m.ts !== "number") m.ts = Date.now();
     chatMsgs.push(m);
     renderChat();
+    // New message from someone else → notify (toast + phone push), unless the
+    // chat panel is already open. Skipped during the initial history load.
+    if (m.by !== deviceId && liveAlertsReady && !chatDrawer.classList.contains("open")) {
+      var who = m.name ? (m.name + " · " + (m.role || "")) : (m.role || "Staff");
+      showToast("💬 " + who + ": " + m.text, "chat");
+      beep(); vibrate();
+      pushNotify("💬 " + who, m.text, "griff-chat");
+    }
     updateBadges();
   }
   function sendChat(text) {
@@ -953,7 +962,9 @@
   /* ----- notification delivery (toast + sound + vibrate) ----- */
   function notify(a) {
     showToast((a.kind === "gas" ? "⛽ " : "🛺 ") + a.text, "alert");
-    beep(); vibrate(); systemNotify(a);
+    beep(); vibrate();
+    // Phone push only for cart requests — gas updates stay in-app / in the list.
+    if (a.kind === "carts") pushNotify("🛺 Carts needed", a.text, "griff-carts");
   }
   function showToast(text, which) {
     var t = document.createElement("div");
@@ -980,10 +991,9 @@
   /* ----- phone (OS) notifications — test site only for now ----- */
   var swReg = null;
   var NOTIF_OK = ("Notification" in window);
-  function systemNotify(a) {
+  function pushNotify(title, body, tag) {
     if (!NOTIF_OK || Notification.permission !== "granted") return;
-    var title = a.kind === "gas" ? "⛽ Carts gassed" : "🛺 Carts needed";
-    var opts = { body: a.text, tag: "griff-" + a.kind, renotify: true };
+    var opts = { body: body, tag: tag || "griff", renotify: true };
     try {
       if (swReg && swReg.showNotification) swReg.showNotification(title, opts);
       else new Notification(title, opts);
@@ -1022,12 +1032,7 @@
     if (testBtn) testBtn.addEventListener("click", function () {
       showToast("📲 Test notification sent to this device", "alert");
       beep(); vibrate();
-      try {
-        var title = "⛳ The Griff — Test";
-        var opts = { body: "If you can see this, notifications are working!", tag: "griff-test", renotify: true };
-        if (swReg && swReg.showNotification) swReg.showNotification(title, opts);
-        else if (NOTIF_OK && Notification.permission === "granted") new Notification(title, opts);
-      } catch (e) {}
+      pushNotify("⛳ The Griff — Test", "If you can see this, notifications are working!", "griff-test");
     });
     refresh();
   }
