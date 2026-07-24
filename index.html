@@ -1,15 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
+<html lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#1e5631">
 <title>The Griff — Cart Tracker</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%3E%3Crect%20width='512'%20height='512'%20rx='96'%20fill='%231e5631'/%3E%3Cg%20fill='%23fff'%3E%3Crect%20x='96'%20y='118'%20width='304'%20height='26'%20rx='13'/%3E%3Crect%20x='122'%20y='138'%20width='18'%20height='140'/%3E%3Cpath%20d='M372%20138L392%20138L420%20300L398%20300Z'/%3E%3Crect%20x='160'%20y='200'%20width='26'%20height='100'%20rx='8'/%3E%3Crect%20x='160'%20y='272'%20width='120'%20height='30'%20rx='10'/%3E%3Cpath%20d='M76%20310L436%20310Q448%20310%20448%20322L448%20358Q448%20370%20436%20370L76%20370Q64%20370%2064%20358L64%20322Q64%20310%2076%20310Z'/%3E%3Ccircle%20cx='150'%20cy='386'%20r='46'/%3E%3Ccircle%20cx='368'%20cy='386'%20r='46'/%3E%3C/g%3E%3Ccircle%20cx='150'%20cy='386'%20r='20'%20fill='%231e5631'/%3E%3Ccircle%20cx='368'%20cy='386'%20r='20'%20fill='%231e5631'/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-</head>
-<body>
+</head><body>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -98,13 +95,107 @@
   .app-head h1 { font-size: 1.15rem; letter-spacing: .5px; text-align: left; }
   .app-head .date { text-align: left; font-size: .75rem; opacity: .85; margin-top: 2px; }
   .conn {
-    position: absolute; top: 8px; right: 10px;
+    margin-left: auto;
     font-size: .62rem; font-weight: 700; letter-spacing: .3px;
     padding: 3px 9px; border-radius: 999px;
     background: rgba(255,255,255,.16); color: #fff;
     display: inline-flex; align-items: center; gap: 5px;
   }
   .conn::before { content: "●"; font-size: .7rem; line-height: 1; }
+
+  /* top controls row: chat + alerts (left), connection (right) */
+  .top-controls { display: flex; align-items: center; gap: 8px; min-height: 34px; }
+  .tc-left { display: flex; gap: 8px; }
+  .icon-btn {
+    position: relative; border: none; cursor: pointer;
+    background: rgba(255,255,255,.15); color: #fff;
+    width: 34px; height: 34px; border-radius: 9px;
+    font-size: 1.05rem; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .icon-btn .badge {
+    position: absolute; top: -5px; right: -5px;
+    min-width: 17px; height: 17px; padding: 0 4px;
+    background: var(--red); color: #fff; border-radius: 999px;
+    font-size: .62rem; font-weight: 700; line-height: 17px; text-align: center;
+    display: none;
+  }
+  .icon-btn .badge.show { display: block; }
+
+  /* slide-in drawers (chat + alerts) */
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 79;
+    opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .scrim.show { opacity: 1; pointer-events: auto; }
+  .drawer {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 80;
+    width: min(360px, 86vw); background: var(--card); color: var(--ink);
+    display: flex; flex-direction: column;
+    transform: translateX(-100%); transition: transform .22s ease;
+    box-shadow: 2px 0 16px rgba(0,0,0,.25);
+  }
+  .drawer.open { transform: translateX(0); }
+  .drawer-head {
+    background: var(--green); color: #fff;
+    padding: calc(14px + env(safe-area-inset-top)) 14px 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .drawer-head .htext { flex: 1; }
+  .drawer-head h3 { font-size: 1rem; }
+  .drawer-head .sub { font-size: .72rem; opacity: .88; margin-top: 1px; }
+  .drawer-head .sub a { color: #fff; text-decoration: underline; cursor: pointer; }
+  .drawer-head .close { background: none; border: none; color: #fff; font-size: 1.4rem; cursor: pointer; line-height: 1; padding: 0 4px; }
+
+  .chat-list, .alert-list { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .msg { max-width: 85%; padding: 7px 10px; border-radius: 10px; font-size: .9rem; word-wrap: break-word; }
+  .msg .who { display: block; font-size: .64rem; font-weight: 700; opacity: .85; margin-bottom: 2px; }
+  .msg.them { align-self: flex-start; background: var(--spot-filled); color: var(--ink); }
+  .msg.me { align-self: flex-end; background: var(--green); color: #fff; }
+  .msg.me .who { color: #dbeadf; }
+  .empty-note { text-align: center; color: var(--ink-soft); font-size: .8rem; margin: auto; padding: 20px; }
+  .chat-input { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--bar-border);
+    padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .chat-input input { flex: 1; padding: 10px; border: 1.5px solid var(--bar-border); border-radius: 9px;
+    background: var(--paper); color: var(--ink); font-size: .95rem; outline: none; }
+  .chat-input input:focus { border-color: var(--green); }
+  .chat-input button { border: none; background: var(--green); color: #fff; border-radius: 9px; padding: 0 16px; font-weight: 700; cursor: pointer; }
+
+  .alert-item { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--bar-border); border-radius: 10px; background: var(--paper); }
+  .alert-item .ico { font-size: 1.15rem; line-height: 1.4; }
+  .alert-item .body { flex: 1; }
+  .alert-item .body .t { font-size: .88rem; font-weight: 600; }
+  .alert-item .body .m { font-size: .7rem; color: var(--ink-soft); margin-top: 2px; }
+
+  /* toast notifications */
+  .toast-wrap { position: fixed; left: 0; right: 0; top: calc(8px + env(safe-area-inset-top));
+    z-index: 95; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+  .toast { pointer-events: auto; background: var(--green-dark); color: #fff; padding: 11px 16px;
+    border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.3); font-size: .88rem; font-weight: 600;
+    max-width: 90vw; display: flex; align-items: center; gap: 8px; cursor: pointer; animation: toastin .2s ease; }
+  @keyframes toastin { from { transform: translateY(-12px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  /* team picker modal */
+  .id-modal { position: fixed; inset: 0; z-index: 105; background: rgba(20,30,22,.75);
+    display: none; align-items: center; justify-content: center; padding: 24px; }
+  .id-modal.show { display: flex; }
+  .id-card { background: var(--card); color: var(--ink); border-radius: 16px; padding: 22px; width: 100%; max-width: 320px; text-align: center; }
+  .id-card h3 { font-size: 1.1rem; margin-bottom: 4px; color: var(--heading); }
+  .id-card p { font-size: .82rem; color: var(--ink-soft); margin-bottom: 14px; }
+  .id-roles { display: flex; gap: 10px; margin-bottom: 12px; }
+  .id-roles button { flex: 1; padding: 16px 8px; border: 2px solid var(--green); border-radius: 12px;
+    background: var(--card); color: var(--green); font-weight: 700; font-size: 1rem; cursor: pointer; }
+  .id-roles button.sel { background: var(--green); color: #fff; }
+  .id-card input { width: 100%; padding: 11px; border: 1.5px solid var(--bar-border); border-radius: 9px;
+    margin-bottom: 12px; font-size: .95rem; text-align: center; background: var(--paper); color: var(--ink); outline: none; }
+  .id-card .save { width: 100%; padding: 13px; border: none; border-radius: 10px; background: var(--green); color: #fff; font-weight: 700; font-size: 1rem; cursor: pointer; }
+  .id-card .save[disabled] { opacity: .45; cursor: default; }
+
+  /* request-carts action */
+  .lot-actions { display: flex; justify-content: center; margin: 0 0 12px; }
+  .request-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px;
+    font-size: .9rem; font-weight: 600; border: 1.5px solid var(--green); border-radius: 8px;
+    background: var(--card); color: var(--green); cursor: pointer; }
+  .request-btn.sent { background: var(--green); color: #fff; }
   .conn[data-state="live"] { background: rgba(255,255,255,.92); color: #143d22; }
   .conn[data-state="connecting"] { color: #ffe9a8; }
   .conn[data-state="local"] { color: #ffd7d2; }
@@ -287,7 +378,13 @@
 </div>
 
 <header class="app-head">
-  <div class="conn" id="conn" data-state="local" title="Shared connection status">Local only</div>
+  <div class="top-controls">
+    <div class="tc-left">
+      <button class="icon-btn" id="chat-btn" aria-label="Team chat" title="Team chat">💬<span class="badge" id="chat-badge"></span></button>
+      <button class="icon-btn" id="alert-btn" aria-label="Alerts" title="Alerts">🔔<span class="badge" id="alert-badge"></span></button>
+    </div>
+    <div class="conn" id="conn" data-state="local" title="Shared connection status">Local only</div>
+  </div>
   <div class="head-row">
     <svg class="logo-crest" viewBox="0 0 360 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The Griff logo — Greenwich Connecticut">
       <ellipse cx="180" cy="145" rx="174" ry="140" fill="#ffffff"/>
@@ -341,6 +438,9 @@
       <button class="erase-btn" id="broken-btn" aria-pressed="false"><span class="x">⊘</span> Mark Unserviceable</button>
     </div>
     <div class="erase-banner" id="erase-banner"></div>
+    <div class="lot-actions">
+      <button class="request-btn" id="request-btn" title="Alert the range staff that more carts are needed">🛺 Request carts from range</button>
+    </div>
     <div class="lot-scroll">
       <div class="lot" id="lot-main"></div>
       <div class="col-labels" id="lot-labels"></div>
@@ -359,6 +459,49 @@
 
 <div class="bottom-bar">
   <button class="bar-btn" id="clear-btn">Clear Sheet</button>
+</div>
+
+<!-- Chat + Alerts drawers -->
+<div class="scrim" id="scrim"></div>
+
+<aside class="drawer" id="chat-drawer" aria-label="Team chat">
+  <div class="drawer-head">
+    <div class="htext">
+      <h3>Team Chat</h3>
+      <div class="sub" id="chat-you"></div>
+    </div>
+    <button class="close" data-close="chat" aria-label="Close chat">&times;</button>
+  </div>
+  <div class="chat-list" id="chat-list"></div>
+  <form class="chat-input" id="chat-form">
+    <input id="chat-text" type="text" placeholder="Message the team…" autocomplete="off" maxlength="500" aria-label="Message">
+    <button type="submit">Send</button>
+  </form>
+</aside>
+
+<aside class="drawer" id="alert-drawer" aria-label="Alerts">
+  <div class="drawer-head">
+    <div class="htext"><h3>Alerts</h3><div class="sub">Gas updates &amp; cart requests</div></div>
+    <button class="close" data-close="alert" aria-label="Close alerts">&times;</button>
+  </div>
+  <div class="alert-list" id="alert-list"></div>
+</aside>
+
+<!-- Toasts -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<!-- Team picker -->
+<div class="id-modal" id="id-modal">
+  <div class="id-card">
+    <h3>Which team are you on?</h3>
+    <p>This tells the app who to notify — pick one to continue.</p>
+    <div class="id-roles">
+      <button type="button" data-role="Shop" id="role-shop">🏬 Shop</button>
+      <button type="button" data-role="Range" id="role-range">⛳ Range</button>
+    </div>
+    <input id="id-name" type="text" placeholder="Your name (optional)" autocomplete="off" maxlength="24">
+    <button class="save" id="id-save" disabled>Save</button>
+  </div>
 </div>
 
 <script>
@@ -585,6 +728,7 @@
           state.gas[num] = true;
           btn.classList.add("done");
           writePath("gas/" + num, true);
+          queueGasAlert(num);
         }
         updateSummary();
       });
@@ -660,6 +804,224 @@
   }
   window.__griffApplyRemote = applyRemote; // debug/testing hook
 
+  /* =========================================================
+     Team chat + alerts (shop <-> range)
+     ========================================================= */
+  var ROLE_KEY = "griff-role", NAME_KEY = "griff-name", DEV_KEY = "griff-device";
+  var CHAT_SEEN_KEY = "griff-chat-seen", ALERT_SEEN_KEY = "griff-alerts-seen";
+  var pageLoadTs = Date.now();
+  var liveAlertsReady = !cloudConfigured; // in local mode there's no history burst
+
+  var myRole = "", myName = "", deviceId = "", chatSeen = 0, alertSeen = 0;
+  try {
+    myRole = localStorage.getItem(ROLE_KEY) || "";
+    myName = localStorage.getItem(NAME_KEY) || "";
+    deviceId = localStorage.getItem(DEV_KEY) || "";
+    if (!deviceId) { deviceId = "d" + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem(DEV_KEY, deviceId); }
+    chatSeen = +localStorage.getItem(CHAT_SEEN_KEY) || 0;
+    alertSeen = +localStorage.getItem(ALERT_SEEN_KEY) || 0;
+  } catch (e) { if (!deviceId) deviceId = "d" + Date.now(); }
+
+  var seenChatKeys = {}, seenAlertKeys = {}, chatMsgs = [], alertItems = [];
+
+  var scrim = document.getElementById("scrim");
+  var chatDrawer = document.getElementById("chat-drawer");
+  var alertDrawer = document.getElementById("alert-drawer");
+  var chatListEl = document.getElementById("chat-list");
+  var alertListEl = document.getElementById("alert-list");
+  var chatBadge = document.getElementById("chat-badge");
+  var alertBadge = document.getElementById("alert-badge");
+  var chatYou = document.getElementById("chat-you");
+  var toastWrap = document.getElementById("toast-wrap");
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
+  function fmtTime(ts) { try { return new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; } }
+
+  function openDrawer(which) {
+    var d = which === "chat" ? chatDrawer : alertDrawer;
+    (which === "chat" ? alertDrawer : chatDrawer).classList.remove("open");
+    d.classList.add("open");
+    scrim.classList.add("show");
+    if (which === "chat") {
+      chatSeen = Date.now(); try { localStorage.setItem(CHAT_SEEN_KEY, chatSeen); } catch (e) {}
+      setTimeout(function () { chatListEl.scrollTop = chatListEl.scrollHeight; }, 30);
+    } else {
+      alertSeen = Date.now(); try { localStorage.setItem(ALERT_SEEN_KEY, alertSeen); } catch (e) {}
+    }
+    updateBadges();
+  }
+  function closeDrawers() { chatDrawer.classList.remove("open"); alertDrawer.classList.remove("open"); scrim.classList.remove("show"); }
+
+  document.getElementById("chat-btn").addEventListener("click", function () { ensureRole(function () { openDrawer("chat"); }); });
+  document.getElementById("alert-btn").addEventListener("click", function () { openDrawer("alert"); });
+  scrim.addEventListener("click", closeDrawers);
+  Array.prototype.forEach.call(document.querySelectorAll(".drawer-head .close"), function (b) { b.addEventListener("click", closeDrawers); });
+
+  function setBadge(el, n) { if (n > 0) { el.textContent = n > 9 ? "9+" : n; el.classList.add("show"); } else el.classList.remove("show"); }
+  function updateBadges() {
+    var c = 0; chatMsgs.forEach(function (m) { if (m.ts > chatSeen && m.by !== deviceId) c++; });
+    var a = 0; alertItems.forEach(function (x) { if (x.ts > alertSeen && x.by !== deviceId && isForMe(x)) a++; });
+    setBadge(chatBadge, c); setBadge(alertBadge, a);
+  }
+
+  /* ----- chat ----- */
+  function renderChat() {
+    if (!chatMsgs.length) { chatListEl.innerHTML = '<div class="empty-note">No messages yet. Say hello 👋</div>'; return; }
+    chatMsgs.sort(function (a, b) { return a.ts - b.ts; });
+    var html = "";
+    chatMsgs.forEach(function (m) {
+      var mine = m.by === deviceId;
+      var who = esc(m.name ? (m.name + " · " + (m.role || "")) : (m.role || "Staff"));
+      html += '<div class="msg ' + (mine ? "me" : "them") + '"><span class="who">' + who + '</span>' + esc(m.text) + '</div>';
+    });
+    chatListEl.innerHTML = html;
+    chatListEl.scrollTop = chatListEl.scrollHeight;
+  }
+  function onChatMessage(key, m) {
+    if (!m || seenChatKeys[key]) return;
+    seenChatKeys[key] = 1;
+    if (typeof m.ts !== "number") m.ts = Date.now();
+    chatMsgs.push(m);
+    renderChat();
+    updateBadges();
+  }
+  function sendChat(text) {
+    text = (text || "").trim(); if (!text) return;
+    var m = { by: deviceId, role: myRole || "Staff", name: myName || "", text: text, ts: Date.now() };
+    if (cloud && fb && fb.push) { try { fb.push(fb.ref(fb.db, "chat"), m); } catch (e) {} }
+    else onChatMessage("local-" + m.ts + Math.random(), m);
+  }
+
+  /* ----- alerts ----- */
+  function isForMe(a) { return (a.kind === "gas" && myRole === "Shop") || (a.kind === "carts" && myRole === "Range"); }
+  function renderAlerts() {
+    if (!alertItems.length) { alertListEl.innerHTML = '<div class="empty-note">No alerts yet.</div>'; return; }
+    alertItems.sort(function (a, b) { return b.ts - a.ts; });
+    var html = "";
+    alertItems.forEach(function (a) {
+      var ico = a.kind === "gas" ? "⛽" : "🛺";
+      html += '<div class="alert-item"><div class="ico">' + ico + '</div><div class="body"><div class="t">' +
+        esc(a.text) + '</div><div class="m">' + esc(a.from || "") + ' · ' + fmtTime(a.ts) + '</div></div></div>';
+    });
+    alertListEl.innerHTML = html;
+  }
+  function onAlert(key, a) {
+    if (!a || seenAlertKeys[key]) return;
+    seenAlertKeys[key] = 1;
+    if (typeof a.ts !== "number") a.ts = Date.now();
+    alertItems.push(a);
+    renderAlerts();
+    if (a.by !== deviceId && isForMe(a) && liveAlertsReady) notify(a);
+    updateBadges();
+  }
+  function sendAlert(kind, text) {
+    var a = { by: deviceId, kind: kind, from: myName || myRole || "Staff", text: text, ts: Date.now() };
+    if (cloud && fb && fb.push) { try { fb.push(fb.ref(fb.db, "alerts"), a); } catch (e) {} }
+    else onAlert("local-" + a.ts + Math.random(), a);
+  }
+  var gasQ = [], gasTimer = null;
+  function queueGasAlert(num) {
+    gasQ.push(num);
+    clearTimeout(gasTimer);
+    gasTimer = setTimeout(function () {
+      var list = gasQ.slice().sort(function (a, b) { return a - b; }); gasQ = [];
+      if (!list.length) return;
+      var who = myName || (myRole === "Range" ? "Range" : (myRole || "Range staff"));
+      sendAlert("gas", who + " gassed cart" + (list.length > 1 ? "s" : "") + " " + list.join(", "));
+    }, 4000);
+  }
+
+  /* ----- notification delivery (toast + sound + vibrate) ----- */
+  function notify(a) {
+    showToast((a.kind === "gas" ? "⛽ " : "🛺 ") + a.text, "alert");
+    beep(); vibrate();
+  }
+  function showToast(text, which) {
+    var t = document.createElement("div");
+    t.className = "toast";
+    t.textContent = text;
+    t.addEventListener("click", function () { openDrawer(which); if (t.parentNode) t.remove(); });
+    toastWrap.appendChild(t);
+    setTimeout(function () { if (t.parentNode) t.remove(); }, 6000);
+  }
+  function beep() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      var ctx = beep._c || (beep._c = new AC());
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "sine"; o.frequency.value = 880; o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      o.start(); o.stop(ctx.currentTime + 0.26);
+    } catch (e) {}
+  }
+  function vibrate() { try { if (navigator.vibrate) navigator.vibrate([180, 80, 180]); } catch (e) {} }
+
+  /* ----- request carts (shop -> range) ----- */
+  var requestBtn = document.getElementById("request-btn");
+  requestBtn.addEventListener("click", function () {
+    ensureRole(function () {
+      var who = myName || (myRole === "Shop" ? "Shop" : (myRole || "Shop"));
+      sendAlert("carts", who + " needs carts brought up to the lot");
+      requestBtn.classList.add("sent");
+      var orig = requestBtn.textContent;
+      requestBtn.textContent = "✓ Range notified";
+      setTimeout(function () { requestBtn.classList.remove("sent"); requestBtn.textContent = orig; }, 2500);
+    });
+  });
+
+  /* ----- identity (Shop / Range) ----- */
+  var idModal = document.getElementById("id-modal");
+  var idName = document.getElementById("id-name");
+  var idSave = document.getElementById("id-save");
+  var roleShop = document.getElementById("role-shop");
+  var roleRange = document.getElementById("role-range");
+  var pendingRole = "", idCb = null;
+
+  function refreshYou() {
+    if (!myRole) { chatYou.textContent = ""; return; }
+    chatYou.innerHTML = "You: <b>" + esc(myName ? myName + " · " + myRole : myRole) + "</b> · <a id=\"chg\">change</a>";
+    var chg = document.getElementById("chg");
+    if (chg) chg.addEventListener("click", function () { showIdModal(); });
+  }
+  function paintRoles() {
+    roleShop.classList.toggle("sel", pendingRole === "Shop");
+    roleRange.classList.toggle("sel", pendingRole === "Range");
+    idSave.disabled = !pendingRole;
+  }
+  function showIdModal(cb) {
+    idCb = cb || null; pendingRole = myRole || ""; idName.value = myName || "";
+    paintRoles(); idModal.classList.add("show");
+  }
+  roleShop.addEventListener("click", function () { pendingRole = "Shop"; paintRoles(); });
+  roleRange.addEventListener("click", function () { pendingRole = "Range"; paintRoles(); });
+  idSave.addEventListener("click", function () {
+    if (!pendingRole) return;
+    myRole = pendingRole; myName = (idName.value || "").trim();
+    try { localStorage.setItem(ROLE_KEY, myRole); localStorage.setItem(NAME_KEY, myName); } catch (e) {}
+    idModal.classList.remove("show");
+    refreshYou(); updateBadges();
+    var cb = idCb; idCb = null; if (cb) cb();
+  });
+  function ensureRole(cb) { if (myRole) cb(); else showIdModal(cb); }
+  window.__griffCheckIdentity = function () { if (!myRole) showIdModal(); };
+
+  document.getElementById("chat-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var inp = document.getElementById("chat-text");
+    ensureRole(function () { sendChat(inp.value); inp.value = ""; });
+  });
+
+  window.__griffOnChat = onChatMessage;   // test hooks
+  window.__griffOnAlert = onAlert;
+  window.__griffSetReady = function () { liveAlertsReady = true; };
+
+  refreshYou();
+  renderChat();
+  renderAlerts();
+  updateBadges();
+
   // Connect to the shared database (only if a real config was pasted in).
   if (cloudConfigured) {
     setConn("connecting");
@@ -671,7 +1033,7 @@
       var appMod = mods[0], dbMod = mods[1];
       var app = appMod.initializeApp(FIREBASE_CONFIG);
       var db = dbMod.getDatabase(app);
-      fb = { db: db, ref: dbMod.ref, set: dbMod.set, remove: dbMod.remove };
+      fb = { db: db, ref: dbMod.ref, set: dbMod.set, remove: dbMod.remove, push: dbMod.push };
       cloud = true;
       // Firebase's built-in "am I connected?" flag drives the badge.
       dbMod.onValue(dbMod.ref(db, ".info/connected"), function (s) {
@@ -680,6 +1042,15 @@
       dbMod.onValue(dbMod.ref(db, "board"), function (snap) {
         applyRemote(snap.val());
       });
+      // Chat + alerts streams (last N so history loads, then live).
+      dbMod.onChildAdded(dbMod.query(dbMod.ref(db, "chat"), dbMod.limitToLast(60)), function (snap) {
+        onChatMessage(snap.key, snap.val());
+      });
+      dbMod.onChildAdded(dbMod.query(dbMod.ref(db, "alerts"), dbMod.limitToLast(40)), function (snap) {
+        onAlert(snap.key, snap.val());
+      });
+      // Don't toast for the historical burst — only alerts arriving after load.
+      setTimeout(function () { liveAlertsReady = true; }, 1600);
     }).catch(function () {
       /* SDK blocked or offline — stay in local mode; the app still works
          on this device, it just won't sync until it can reach Firebase. */
@@ -700,6 +1071,7 @@
   function unlock() {
     gate.classList.add("hidden");
     document.body.classList.remove("locked");
+    if (window.__griffCheckIdentity) window.__griffCheckIdentity();
   }
 
   var alreadyIn = false;
@@ -726,5 +1098,6 @@
   });
 })();
 </script>
+
 </body>
 </html>
