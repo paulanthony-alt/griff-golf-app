@@ -30,14 +30,17 @@ Takes about 10 minutes. It's free (Firebase "Spark" plan).
    ```json
    {
      "rules": {
-       "board": {
-         ".read": true,
-         ".write": true
-       }
+       "board":  { ".read": true, ".write": true },
+       "chat":   { ".read": true, ".write": true },
+       "alerts": { ".read": true, ".write": true }
      }
    }
    ```
 2. Click **Publish**.
+
+   (If you set up the database before chat/alerts existed and only had a
+   `board` rule, replace it with the block above and Publish again — otherwise
+   chat messages and alerts will be silently rejected.)
 
    NOTE: these rules let anyone who reaches the database read/write the shared
    board. That's the trade-off for a no-login staff tool (same spirit as the
