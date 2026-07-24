@@ -495,6 +495,7 @@
   </div>
   <div class="notif-bar" id="notif-bar">
     <button class="notif-enable" id="notif-enable">🔔 Turn on phone notifications</button>
+    <button class="notif-enable" id="notif-test" style="display:none">📲 Send a test notification</button>
     <div class="notif-hint" id="notif-hint"></div>
   </div>
   <div class="alert-list" id="alert-list"></div>
@@ -995,25 +996,39 @@
     }
     var bar = document.getElementById("notif-bar");
     var btn = document.getElementById("notif-enable");
+    var testBtn = document.getElementById("notif-test");
     var hint = document.getElementById("notif-hint");
     if (!bar) return;
     function refresh() {
+      bar.classList.add("show");
       if (!NOTIF_OK) {
-        bar.classList.add("show"); btn.style.display = "none";
+        btn.style.display = "none"; testBtn.style.display = "none";
         hint.textContent = "This browser can't show phone notifications here. On iPhone, add the site to your Home Screen and reopen it, then try again.";
         return;
       }
-      if (Notification.permission === "granted") { bar.classList.remove("show"); }
-      else if (Notification.permission === "denied") {
-        bar.classList.add("show"); btn.style.display = "none";
+      if (Notification.permission === "granted") {
+        btn.style.display = "none"; testBtn.style.display = "";
+        hint.textContent = "Notifications are on. Tap above to send yourself a test.";
+      } else if (Notification.permission === "denied") {
+        btn.style.display = "none"; testBtn.style.display = "none";
         hint.textContent = "Notifications are blocked for this site in your browser settings — turn them back on there to use this.";
       } else {
-        bar.classList.add("show"); btn.style.display = ""; hint.textContent = "";
+        btn.style.display = ""; testBtn.style.display = "none"; hint.textContent = "";
       }
     }
     if (btn) btn.addEventListener("click", function () {
       if (!NOTIF_OK) return;
       Notification.requestPermission().then(function () { refresh(); });
+    });
+    if (testBtn) testBtn.addEventListener("click", function () {
+      showToast("📲 Test notification sent to this device", "alert");
+      beep(); vibrate();
+      try {
+        var title = "⛳ The Griff — Test";
+        var opts = { body: "If you can see this, notifications are working!", tag: "griff-test", renotify: true };
+        if (swReg && swReg.showNotification) swReg.showNotification(title, opts);
+        else if (NOTIF_OK && Notification.permission === "granted") new Notification(title, opts);
+      } catch (e) {}
     });
     refresh();
   }
