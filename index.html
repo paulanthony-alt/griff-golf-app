@@ -1017,8 +1017,14 @@
         return;
       }
       if (Notification.permission === "granted") {
-        btn.style.display = "none"; testBtn.style.display = "";
-        hint.textContent = "Notifications are on. Tap above to send yourself a test.";
+        btn.style.display = "none";
+        if (IS_TEST) {
+          testBtn.style.display = "";
+          hint.textContent = "Notifications are on. Tap above to send yourself a test.";
+        } else {
+          testBtn.style.display = "none";
+          bar.classList.remove("show"); // live: once enabled, nothing to show
+        }
       } else if (Notification.permission === "denied") {
         btn.style.display = "none"; testBtn.style.display = "none";
         hint.textContent = "Notifications are blocked for this site in your browser settings — turn them back on there to use this.";
