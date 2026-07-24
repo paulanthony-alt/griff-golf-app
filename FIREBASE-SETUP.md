@@ -32,11 +32,16 @@ Takes about 10 minutes. It's free (Firebase "Spark" plan).
      "rules": {
        "board":  { ".read": true, ".write": true },
        "chat":   { ".read": true, ".write": true },
-       "alerts": { ".read": true, ".write": true }
+       "alerts": { ".read": true, ".write": true },
+       "test":   { ".read": true, ".write": true }
      }
    }
    ```
 2. Click **Publish**.
+
+   The `test` branch backs the separate test site at
+   `.../griff-golf-app/test/` — its board/chat/alerts live under `test/` so
+   testing never touches the real staff data.
 
    (If you set up the database before chat/alerts existed and only had a
    `board` rule, replace it with the block above and Publish again — otherwise
