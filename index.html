@@ -983,7 +983,7 @@
   var swReg = null;
   var NOTIF_OK = ("Notification" in window);
   function systemNotify(a) {
-    if (!IS_TEST || !NOTIF_OK || Notification.permission !== "granted") return;
+    if (!NOTIF_OK || Notification.permission !== "granted") return;
     var title = a.kind === "gas" ? "⛽ Carts gassed" : "🛺 Carts needed";
     var opts = { body: a.text, tag: "griff-" + a.kind, renotify: true };
     try {
@@ -992,7 +992,6 @@
     } catch (e) {}
   }
   function setupNotifications() {
-    if (!IS_TEST) return;
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js").then(function (reg) { swReg = reg; }).catch(function () {});
     }
