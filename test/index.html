@@ -273,13 +273,13 @@
 
   .lot-scroll { overflow-x: auto; padding-bottom: 4px; }
   .lot {
-    display: grid; grid-template-columns: repeat(12, minmax(52px, 1fr));
-    border: 1.5px solid var(--line); min-width: 640px; background: var(--card);
+    display: grid; grid-template-columns: repeat(13, minmax(52px, 1fr));
+    border: 1.5px solid var(--line); min-width: 690px; background: var(--card);
   }
   .lot .cell { position: relative; border: .5px solid var(--line); height: 52px; display: flex; align-items: center; justify-content: center; }
   .col-labels {
-    display: grid; grid-template-columns: repeat(12, minmax(52px, 1fr));
-    min-width: 640px; margin-top: 2px;
+    display: grid; grid-template-columns: repeat(13, minmax(52px, 1fr));
+    min-width: 690px; margin-top: 2px;
   }
   .col-labels div { text-align: center; font-weight: 700; font-size: .9rem; color: var(--heading); }
   .overflow-label {
@@ -288,7 +288,7 @@
   }
   .lot2 {
     display: grid; grid-template-columns: repeat(7, minmax(88px, 1fr));
-    border: 1.5px solid var(--line); min-width: 640px; background: var(--card);
+    border: 1.5px solid var(--line); min-width: 690px; background: var(--card);
   }
   .lot2 .cell { position: relative; border: .5px solid var(--line); height: 44px; display: flex; align-items: center; justify-content: center; }
   .cell input {
@@ -526,7 +526,7 @@
 
 <script>
 (function () {
-  var COLS = ["A","B","C","D","E","F","G","H","I","J","K","L"];
+  var COLS = ["A","B","C","D","E","F","G","H","I","J","K","L","M"];
   var ROWS_PER_COL = 4;
   var OVERFLOW_COLS = 7;
   var OVERFLOW_ROWS = 2;
