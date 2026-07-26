@@ -1123,7 +1123,7 @@
   requestBtn.addEventListener("click", function () {
     ensureRole(function () {
       var who = myName || (myRole === "Shop" ? "Shop" : (myRole || "Shop"));
-      sendAlert("carts", who + " is requesting a new cart list — the lot is almost empty");
+      sendAlert("carts", who + " is requesting a new cart list");
       requestBtn.classList.add("sent");
       var orig = requestBtn.textContent;
       requestBtn.textContent = "✓ Range notified";
