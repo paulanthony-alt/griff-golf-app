@@ -918,6 +918,18 @@
 
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
   function fmtTime(ts) { try { return new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; } }
+  // Today → time; then "Yesterday", "2 days ago", … by calendar day.
+  function fmtWhen(ts) {
+    try {
+      var now = new Date(), then = new Date(ts);
+      var d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      var d1 = new Date(then.getFullYear(), then.getMonth(), then.getDate());
+      var days = Math.round((d0 - d1) / 86400000);
+      if (days <= 0) return fmtTime(ts);
+      if (days === 1) return "Yesterday";
+      return days + " days ago";
+    } catch (e) { return ""; }
+  }
 
   function openDrawer(which) {
     var d = which === "chat" ? chatDrawer : alertDrawer;
@@ -929,6 +941,7 @@
       setTimeout(function () { chatListEl.scrollTop = chatListEl.scrollHeight; }, 30);
     } else {
       alertSeen = Date.now(); try { localStorage.setItem(ALERT_SEEN_KEY, alertSeen); } catch (e) {}
+      renderAlerts(); // refresh the relative "when" labels each time it opens
     }
     updateBadges();
   }
@@ -991,7 +1004,7 @@
     alertItems.forEach(function (a) {
       var ico = a.kind === "gas" ? "⛽" : "🛺";
       html += '<div class="alert-item"><div class="ico">' + ico + '</div><div class="body"><div class="t">' +
-        esc(a.text) + '</div><div class="m">' + esc(a.from || "") + ' · ' + fmtTime(a.ts) + '</div></div></div>';
+        esc(a.text) + '</div><div class="m">' + esc(a.from || "") + ' · ' + fmtWhen(a.ts) + '</div></div></div>';
     });
     alertListEl.innerHTML = html;
   }
