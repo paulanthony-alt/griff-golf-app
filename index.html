@@ -272,6 +272,15 @@
     border-top: 2.5px solid var(--red);
   }
 
+  /* pending erase: number stays readable with a red X over it until it clears */
+  .cell.pending input { color: var(--ink); opacity: .85; }
+  .cell.pending::before, .cell.pending::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: 40px; border-top: 3px solid var(--red); pointer-events: none;
+  }
+  .cell.pending::before { transform: translate(-50%, -50%) rotate(45deg); }
+  .cell.pending::after { transform: translate(-50%, -50%) rotate(-45deg); }
+
   .lot-scroll { overflow-x: auto; padding-bottom: 4px; }
   .lot {
     display: grid; grid-template-columns: repeat(13, minmax(52px, 1fr));
@@ -555,7 +564,7 @@
   var LKEY = "griff-cart-tracker";
   var cloud = false;   // becomes true once Firebase is connected
   var fb = null;       // Firebase helpers, filled in on connect
-  var state = cloudConfigured ? { parking: {}, gas: {}, broken: {} } : loadLocal();
+  var state = cloudConfigured ? { parking: {}, gas: {}, broken: {}, pending: {} } : loadLocal();
 
   /* element maps so remote updates can re-render the board live */
   var spotInputs = {};
@@ -574,9 +583,9 @@
   function loadLocal() {
     try {
       var s = JSON.parse(localStorage.getItem(LKEY));
-      if (s && s.parking && s.gas) { if (!s.broken) s.broken = {}; return s; }
+      if (s && s.parking && s.gas) { if (!s.broken) s.broken = {}; if (!s.pending) s.pending = {}; return s; }
     } catch (e) {}
-    return { parking: {}, gas: {}, broken: {} };
+    return { parking: {}, gas: {}, broken: {}, pending: {} };
   }
   function saveLocal() {
     try { localStorage.setItem(LKEY, JSON.stringify(state)); } catch (e) {}
@@ -659,7 +668,7 @@
   var modeBanner = document.getElementById("erase-banner");
 
   var BANNER_TEXT = {
-    erase: "Erase mode on — tap the cart number to remove it, or tap ✕ again to cancel",
+    erase: "Erase mode on — tap a cart to mark it with an X; it clears itself after about a minute (Undo cancels it). Tap ✕ again to exit.",
     broken: "Unserviceable mode on — tap a cart number to mark it unserviceable (tap a marked one to un-mark it), or tap ⊘ again to cancel"
   };
 
@@ -707,6 +716,8 @@
       input.dataset.pb = state.broken[id] ? "1" : "";
     });
     input.addEventListener("input", function () {
+      // typing into a spot cancels any pending erase on it
+      if (state.pending[id]) { clearTimeout(eraseTimers[id]); delete eraseTimers[id]; delete state.pending[id]; removePath("pending/" + id); cell.classList.remove("pending"); }
       var v = input.value.trim();
       if (v) { state.parking[id] = v; writePath("parking/" + id, v); }
       else {
@@ -728,14 +739,13 @@
       if (!input.value) return;
       var prevVal = input.value, prevBroken = !!state.broken[id];
       if (mode === "erase") {
-        input.value = "";
-        delete state.parking[id];
-        delete state.broken[id];
+        // mark for removal (X) now; it clears itself after ~1 minute
+        state.pending[id] = Date.now();
+        writePath("pending/" + id, state.pending[id]);
         cell.classList.remove("broken");
-        cell.classList.add("just-erased");
-        setTimeout(function () { cell.classList.remove("just-erased"); }, 600);
-        removePath("parking/" + id);
-        if (prevBroken) removePath("broken/" + id);
+        cell.classList.add("pending");
+        scheduleErase(id);
+        setUndo(function () { cancelPending(id); });
       } else {
         if (state.broken[id]) {
           delete state.broken[id];
@@ -746,9 +756,9 @@
           cell.classList.add("broken");
           writePath("broken/" + id, true);
         }
+        setUndo(function () { restoreSpot(id, prevVal, prevBroken); });
       }
       updateLotSummary();
-      setUndo(function () { restoreSpot(id, prevVal, prevBroken); });
       setMode(null);
     });
     cell.appendChild(input);
@@ -848,11 +858,16 @@
       var prevBrokenMap = {}; for (var pbk in state.broken) prevBrokenMap[pbk] = state.broken[pbk];
       state.parking = {};
       state.broken = {};
+      state.pending = {};
+      for (var et in eraseTimers) clearTimeout(eraseTimers[et]);
+      eraseTimers = {};
       document.querySelectorAll(".cell input").forEach(function (i) { i.value = ""; });
       document.querySelectorAll(".cell.broken").forEach(function (c) { c.classList.remove("broken"); });
+      document.querySelectorAll(".cell.pending").forEach(function (c) { c.classList.remove("pending"); });
       setMode(null);
       removePath("parking");
       removePath("broken");
+      removePath("pending");
       updateLotSummary();
       setUndo(function () { restoreParkingAll(prevParking, prevBrokenMap); });
     }
@@ -867,7 +882,9 @@
       var val = state.parking[id] || "";
       // don't yank the value out from under someone who's mid-edit
       if (document.activeElement !== input) input.value = val;
-      cell.classList.toggle("broken", !!(state.broken[id] && input.value));
+      var isPending = !!(state.pending[id] && val);
+      cell.classList.toggle("pending", isPending);
+      cell.classList.toggle("broken", !isPending && !!(state.broken[id] && val));
     });
     Object.keys(gasButtons).forEach(function (num) {
       gasButtons[num].classList.toggle("done", !!state.gas[num]);
@@ -881,11 +898,48 @@
     state = {
       parking: data.parking || {},
       gas: data.gas || {},
-      broken: data.broken || {}
+      broken: data.broken || {},
+      pending: data.pending || {}
     };
     applyState();
+    sweepPending();
   }
   window.__griffApplyRemote = applyRemote; // debug/testing hook
+
+  /* ---------- Pending erase (grace period before a spot clears) ---------- */
+  var ERASE_DELAY = 60000; // 1 minute
+  var eraseTimers = {};
+  function scheduleErase(id) {
+    clearTimeout(eraseTimers[id]);
+    eraseTimers[id] = setTimeout(function () { commitErase(id); }, ERASE_DELAY);
+  }
+  function cancelPending(id) {
+    clearTimeout(eraseTimers[id]); delete eraseTimers[id];
+    delete state.pending[id];
+    removePath("pending/" + id);
+    if (spotCells[id]) spotCells[id].classList.remove("pending");
+    applyState();
+  }
+  function commitErase(id) {
+    clearTimeout(eraseTimers[id]); delete eraseTimers[id];
+    delete state.parking[id];
+    delete state.broken[id];
+    delete state.pending[id];
+    removePath("parking/" + id);
+    removePath("broken/" + id);
+    removePath("pending/" + id);
+    if (spotInputs[id]) spotInputs[id].value = "";
+    if (spotCells[id]) { spotCells[id].classList.remove("pending"); spotCells[id].classList.remove("broken"); }
+    updateLotSummary();
+  }
+  function sweepPending() {
+    var now = Date.now();
+    for (var id in state.pending) {
+      if (now - state.pending[id] >= ERASE_DELAY) commitErase(id);
+    }
+  }
+  setInterval(sweepPending, 5000);
+  window.__griffSweep = sweepPending; // testing hook
 
   /* =========================================================
      Team chat + alerts (shop <-> range)
