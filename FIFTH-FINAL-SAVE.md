@@ -26,8 +26,10 @@ namespacing). TEST has a gold "TEST" chip + "TEST" title.
   badge, ~last 60 messages.
 - **Alerts (🔔 top-left)** — in-app toast + persistent list + unread badge.
   Range gasses carts → SHOP (grouped, 4s debounce). Shop taps **"Request a new
-  cart list"** → RANGE (alert reads "<who> is requesting a new cart list — the
-  lot is almost empty"). Routed by team.
+  cart list"** → RANGE (alert reads "<who> is requesting a new cart list").
+  Routed by team. Each alert shows sender · relative time: today shows the
+  clock time, then "Yesterday", "2 days ago", … (fmtWhen(); refreshed each time
+  the panel opens). Alerts flush past the last ~40.
 - **Phone (OS) notifications** — opt-in via 🔔 panel; service worker (sw.js /
   test/sw.js). SCOPED: push ONLY for **chat messages** (unless chat open) and
   **new-cart-list requests** (push title "🛺 New cart list requested"). Gas
