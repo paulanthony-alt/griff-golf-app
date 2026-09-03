@@ -907,9 +907,8 @@
   }
   window.__griffApplyRemote = applyRemote; // debug/testing hook
 
-  /* ---------- Active side (which half carts are pulled from) — test app ---------- */
+  /* ---------- Active side (which half carts are pulled from) ---------- */
   function renderSide() {
-    if (!IS_TEST) return;
     var side = state.side || "";
     document.querySelectorAll("#lot-main .cell").forEach(function (cell) {
       cell.classList.toggle("side-active-cell", !!side && cell.dataset.side === side);
@@ -1246,7 +1245,7 @@
     try { localStorage.setItem(ROLE_KEY, myRole); localStorage.setItem(NAME_KEY, myName); } catch (e) {}
     idModal.classList.remove("show");
     refreshYou(); updateBadges();
-    if (IS_TEST) updateSideControl();
+    updateSideControl();
     var cb = idCb; idCb = null; if (cb) cb();
   });
   function ensureRole(cb) { if (myRole) cb(); else showIdModal(cb); }
@@ -1271,14 +1270,15 @@
     var tcLeft = document.querySelector(".tc-left");
     if (tcLeft) { var chip = document.createElement("span"); chip.className = "test-chip"; chip.textContent = "TEST"; tcLeft.appendChild(chip); }
     try { document.title = "TEST · The Griff Cart Tracker"; } catch (e) {}
-    var sidePicker = document.getElementById("side-picker");
-    if (sidePicker) sidePicker.classList.add("show");
-    document.querySelectorAll(".side-btn").forEach(function (b) {
-      b.addEventListener("click", function () { if (myRole !== "Range") setSide(b.dataset.side); });
-    });
-    updateSideControl();
-    renderSide();
   }
+  // Active-side picker (live + test)
+  var sidePicker = document.getElementById("side-picker");
+  if (sidePicker) sidePicker.classList.add("show");
+  document.querySelectorAll(".side-btn").forEach(function (b) {
+    b.addEventListener("click", function () { if (myRole !== "Range") setSide(b.dataset.side); });
+  });
+  updateSideControl();
+  renderSide();
   setupNotifications();
 
   // Connect to the shared database (only if a real config was pasted in).
