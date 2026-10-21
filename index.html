@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#2a1442">
-<title>🎃 The Griff — Cart Tracker</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='88'%3E%F0%9F%8E%83%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#1e5631">
+<title>The Griff — Cart Tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%3E%3Crect%20width='512'%20height='512'%20rx='96'%20fill='%231e5631'/%3E%3Cg%20fill='%23fff'%3E%3Crect%20x='96'%20y='118'%20width='304'%20height='26'%20rx='13'/%3E%3Crect%20x='122'%20y='138'%20width='18'%20height='140'/%3E%3Cpath%20d='M372%20138L392%20138L420%20300L398%20300Z'/%3E%3Crect%20x='160'%20y='200'%20width='26'%20height='100'%20rx='8'/%3E%3Crect%20x='160'%20y='272'%20width='120'%20height='30'%20rx='10'/%3E%3Cpath%20d='M76%20310L436%20310Q448%20310%20448%20322L448%20358Q448%20370%20436%20370L76%20370Q64%20370%2064%20358L64%20322Q64%20310%2076%20310Z'/%3E%3Ccircle%20cx='150'%20cy='386'%20r='46'/%3E%3Ccircle%20cx='368'%20cy='386'%20r='46'/%3E%3C/g%3E%3Ccircle%20cx='150'%20cy='386'%20r='20'%20fill='%231e5631'/%3E%3Ccircle%20cx='368'%20cy='386'%20r='20'%20fill='%231e5631'/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 </head>
@@ -428,6 +428,33 @@
   .halloween .sheet-title { text-shadow: 0 0 10px rgba(255,138,30,.35); }
   .halloween .gas-ind.gassed { color: #7bd63f; }
   .halloween .logo-chip { box-shadow: 0 0 0 2px #ff8a1e, 0 0 10px rgba(255,138,30,.4); }
+
+  /* ===== Thanksgiving theme (temporary, warm autumn) ===== */
+  :root.thanksgiving {
+    --green: #8a3b17 !important;
+    --green-dark: #9a4a1c !important;
+    --green-head-text: #fff3e0 !important;
+    --spot-filled: #f6e4c6 !important;
+    --line: #d8bf99 !important;
+    --paper: #f6eddd !important;
+    --card: #fffaf1 !important;
+    --ink: #3f2a1b !important;
+    --ink-soft: #8a6f56 !important;
+    --red: #b23a2e !important;
+    --red-soft: #f7e0da !important;
+    --bar-bg: #fffaf1 !important;
+    --bar-border: #e4d3b4 !important;
+    --heading: #b5491c !important;
+  }
+  .thanksgiving body { background: radial-gradient(1100px 480px at 50% -12%, #fbf2e2 0%, var(--paper) 60%) !important; }
+  .thanksgiving .app-head { background: linear-gradient(135deg, #a0481c 0%, #8a3b17 55%, #6e2d10 100%) !important; }
+  .thanksgiving .app-head .top-controls, .thanksgiving .app-head .head-row, .thanksgiving .app-head .tabs { position: relative; z-index: 1; }
+  .thanksgiving .tg-leaves { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+  .thanksgiving .tg-leaf { position: absolute; top: -18px; font-size: 1rem; opacity: .7; animation: tg-fall 7s linear infinite; }
+  @keyframes tg-fall { 0% { transform: translateY(-18px) rotate(0deg); } 100% { transform: translateY(132px) rotate(220deg); } }
+  @media (prefers-reduced-motion: reduce) { .thanksgiving .tg-leaf { animation: none; top: 10px; } }
+  .thanksgiving .sheet-title { text-shadow: 0 0 8px rgba(181,73,28,.18); }
+  .thanksgiving .logo-chip { box-shadow: 0 0 0 2px #d99b2b, 0 0 10px rgba(217,155,43,.35); }
 </style>
 
 <div class="gate" id="gate" role="dialog" aria-modal="true" aria-label="Staff sign in">
@@ -1358,26 +1385,60 @@
     if (tcLeft) { var chip = document.createElement("span"); chip.className = "test-chip"; chip.textContent = "TEST"; tcLeft.appendChild(chip); }
     try { document.title = "TEST · The Griff Cart Tracker"; } catch (e) {}
   }
-  // ===== Halloween theme (temporary seasonal surprise, live + test) =====
-  {
-    document.documentElement.classList.add("halloween");
-    var hwH1 = document.querySelector(".app-head h1");
-    if (hwH1 && hwH1.textContent.indexOf("🎃") === -1) hwH1.textContent = "🎃 " + hwH1.textContent + " 👻";
-    var hwHead = document.querySelector(".app-head");
-    if (hwHead) {
-      var bats = document.createElement("div"); bats.className = "hw-bats";
-      [["20%", "26%", "0s"], ["68%", "48%", "2s"]].forEach(function (b) {
-        var el = document.createElement("span"); el.className = "hw-bat"; el.textContent = "🦇";
-        el.style.left = b[0]; el.style.top = b[1]; el.style.animationDelay = b[2]; bats.appendChild(el);
-      });
-      hwHead.insertBefore(bats, hwHead.firstChild);
-      ["left", "right"].forEach(function (s) {
-        var w = document.createElement("span"); w.className = "hw-web " + s; w.textContent = "🕸️"; hwHead.appendChild(w);
-      });
-    }
-    var gP = document.querySelector(".gate p"); if (gP) gP.textContent = "Enter the staff code… if you dare 🎃";
-    var gH = document.querySelector(".gate h2"); if (gH && gH.textContent.indexOf("🎃") === -1) gH.textContent = "🎃 " + gH.textContent;
+  // ===== Seasonal themes — automatic by date (live + test); temporary =====
+  // Halloween: Oct 20–31. Thanksgiving: all of November. Normal otherwise.
+  // Preview/override: add ?season=thanksgiving (or =halloween, or = for normal).
+  function getSeason() {
+    try { var q = new URLSearchParams(location.search).get("season"); if (q !== null) return q; } catch (e) {}
+    try { var ls = localStorage.getItem("griff-season"); if (ls) return ls; } catch (e) {}
+    var n = new Date(), m = n.getMonth(), d = n.getDate();
+    if (m === 9 && d >= 20) return "halloween";
+    if (m === 10) return "thanksgiving";
+    return "";
   }
+  function seasonFavicon(glyph) {
+    return "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>" + glyph + "</text></svg>");
+  }
+  (function () {
+    var SEASON = getSeason();
+    if (SEASON !== "halloween" && SEASON !== "thanksgiving") return;
+    var isHw = SEASON === "halloween";
+    document.documentElement.classList.add(SEASON);
+    var lead = isHw ? "🎃 " : "🦃 ";
+    var trail = isHw ? " 👻" : " 🍁";
+    try { var ic = document.querySelector("link[rel='icon']"); if (ic) ic.setAttribute("href", seasonFavicon(isHw ? "🎃" : "🦃")); } catch (e) {}
+    try { var tc = document.querySelector("meta[name='theme-color']"); if (tc) tc.setAttribute("content", isHw ? "#2a1442" : "#8a3b17"); } catch (e) {}
+    try { document.title = lead + (IS_TEST ? "TEST · The Griff" : "The Griff — Cart Tracker"); } catch (e) {}
+    var h1 = document.querySelector(".app-head h1");
+    if (h1 && !/[🎃🦃]/.test(h1.textContent)) h1.textContent = lead + h1.textContent + trail;
+    var gP = document.querySelector(".gate p");
+    if (gP) gP.textContent = isHw ? "Enter the staff code… if you dare 🎃" : "Happy Thanksgiving! Enter the staff code 🦃";
+    var gH = document.querySelector(".gate h2");
+    if (gH && !/[🎃🦃]/.test(gH.textContent)) gH.textContent = lead + gH.textContent;
+    var head = document.querySelector(".app-head");
+    if (head) {
+      var box = document.createElement("div");
+      box.className = isHw ? "hw-bats" : "tg-leaves";
+      var items = isHw
+        ? [["20%", "26%", "0s", "🦇"], ["68%", "48%", "2s", "🦇"]]
+        : [["12%", "", "0s", "🍁"], ["40%", "", "1.4s", "🍂"], ["66%", "", "2.6s", "🍁"], ["88%", "", "0.7s", "🍂"]];
+      items.forEach(function (it) {
+        var el = document.createElement("span");
+        el.className = isHw ? "hw-bat" : "tg-leaf";
+        el.textContent = it[3];
+        el.style.left = it[0];
+        if (it[1]) el.style.top = it[1];
+        el.style.animationDelay = it[2];
+        box.appendChild(el);
+      });
+      head.insertBefore(box, head.firstChild);
+      if (isHw) {
+        ["left", "right"].forEach(function (s) {
+          var w = document.createElement("span"); w.className = "hw-web " + s; w.textContent = "🕸️"; head.appendChild(w);
+        });
+      }
+    }
+  })();
   // Active-side picker (live + test)
   var sidePicker = document.getElementById("side-picker");
   if (sidePicker) sidePicker.classList.add("show");
