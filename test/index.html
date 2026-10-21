@@ -564,7 +564,7 @@
   var LKEY = "griff-cart-tracker";
   var cloud = false;   // becomes true once Firebase is connected
   var fb = null;       // Firebase helpers, filled in on connect
-  var state = cloudConfigured ? { parking: {}, gas: {}, broken: {}, pending: {}, side: "" } : loadLocal();
+  var state = cloudConfigured ? { parking: {}, gas: {}, broken: {}, pending: {}, side: "", gasStart: 0 } : loadLocal();
 
   /* element maps so remote updates can re-render the board live */
   var spotInputs = {};
@@ -584,9 +584,9 @@
   function loadLocal() {
     try {
       var s = JSON.parse(localStorage.getItem(LKEY));
-      if (s && s.parking && s.gas) { if (!s.broken) s.broken = {}; if (!s.pending) s.pending = {}; if (!s.side) s.side = ""; return s; }
+      if (s && s.parking && s.gas) { if (!s.broken) s.broken = {}; if (!s.pending) s.pending = {}; if (!s.side) s.side = ""; if (!s.gasStart) s.gasStart = 0; return s; }
     } catch (e) {}
-    return { parking: {}, gas: {}, broken: {}, pending: {}, side: "" };
+    return { parking: {}, gas: {}, broken: {}, pending: {}, side: "", gasStart: 0 };
   }
   function saveLocal() {
     try { localStorage.setItem(LKEY, JSON.stringify(state)); } catch (e) {}
@@ -643,6 +643,7 @@
     state.gas = {}; for (var k in g) state.gas[k] = g[k];
     if (cloud) { try { fb.set(fb.ref(fb.db, DATA_NS + "board/gas"), Object.keys(g).length ? g : null); } catch (e) {} }
     else saveLocal();
+    if (IS_TEST && Object.keys(state.gas).length && !state.gasStart) { state.gasStart = Date.now(); writePath("gasStart", state.gasStart); }
     applyState();
   }
 
@@ -778,13 +779,15 @@
     return cell;
   }
 
-  // green pump = this parked cart is gassed; red pump = parked but not gassed (test app)
+  // gas-pump icons appear only while a gas round is underway (≥1 cart marked);
+  // green = this parked cart is gassed, red = parked but not yet gassed (test app)
   function refreshGasIcons() {
     if (!IS_TEST) return;
+    var active = Object.keys(state.gas).length > 0;
     Object.keys(spotInputs).forEach(function (id) {
       var el = spotGasInd[id]; if (!el) return;
       var num = state.parking[id];
-      if (num) {
+      if (active && num) {
         var gassed = !!state.gas[num];
         el.classList.add("show");
         el.classList.toggle("gassed", gassed);
@@ -838,15 +841,18 @@
       gasButtons[num] = btn;
       btn.addEventListener("click", function () {
         var wasDone = !!state.gas[num];
+        var wasEmpty = Object.keys(state.gas).length === 0;
         if (state.gas[num]) {
           delete state.gas[num];
           btn.classList.remove("done");
           removePath("gas/" + num);
+          if (IS_TEST && Object.keys(state.gas).length === 0) { state.gasStart = 0; removePath("gasStart"); }
         } else {
           state.gas[num] = true;
           btn.classList.add("done");
           writePath("gas/" + num, true);
           queueGasAlert(num);
+          if (IS_TEST && wasEmpty) { state.gasStart = Date.now(); writePath("gasStart", state.gasStart); }
         }
         updateSummary();
         setUndo(function () { restoreGas(num, wasDone); });
@@ -880,6 +886,7 @@
     if (onGas) {
       var prevGas = {}; for (var gk in state.gas) prevGas[gk] = state.gas[gk];
       state.gas = {};
+      if (IS_TEST) { state.gasStart = 0; removePath("gasStart"); }
       document.querySelectorAll(".gas-btn").forEach(function (b) { b.classList.remove("done"); });
       removePath("gas");
       updateSummary();
@@ -931,11 +938,13 @@
       gas: data.gas || {},
       broken: data.broken || {},
       pending: data.pending || {},
-      side: data.side || ""
+      side: data.side || "",
+      gasStart: data.gasStart || 0
     };
     applyState();
     sweepPending();
     renderSide();
+    checkGasExpiry();
   }
   window.__griffApplyRemote = applyRemote; // debug/testing hook
 
@@ -997,6 +1006,22 @@
     for (var id in state.pending) {
       if (now - state.pending[id] >= ERASE_DELAY) commitErase(id);
     }
+    checkGasExpiry();
+  }
+
+  /* Gas list auto-resets 48h after a gas round starts (parking never resets). */
+  var GAS_TTL = 48 * 60 * 60 * 1000; // 48 hours
+  function clearGasList() {
+    state.gas = {};
+    state.gasStart = 0;
+    removePath("gas");
+    removePath("gasStart");
+    document.querySelectorAll(".gas-btn").forEach(function (b) { b.classList.remove("done"); });
+    updateSummary(); // also hides the gas icons since the list is now empty
+  }
+  function checkGasExpiry() {
+    if (!IS_TEST) return;
+    if (state.gasStart && Date.now() - state.gasStart >= GAS_TTL) clearGasList();
   }
   setInterval(sweepPending, 5000);
   window.__griffSweep = sweepPending; // testing hook
