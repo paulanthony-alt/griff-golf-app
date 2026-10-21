@@ -1356,8 +1356,8 @@
     if (tcLeft) { var chip = document.createElement("span"); chip.className = "test-chip"; chip.textContent = "TEST"; tcLeft.appendChild(chip); }
     try { document.title = "TEST · The Griff Cart Tracker"; } catch (e) {}
   }
-  // ===== Halloween theme (test app, temporary surprise) =====
-  if (IS_TEST) {
+  // ===== Halloween theme (temporary seasonal surprise, live + test) =====
+  {
     document.documentElement.classList.add("halloween");
     var hwH1 = document.querySelector(".app-head h1");
     if (hwH1 && hwH1.textContent.indexOf("🎃") === -1) hwH1.textContent = "🎃 " + hwH1.textContent + " 👻";
