@@ -597,10 +597,10 @@
      "test" branch in Firebase so testing never touches the real staff board. */
   var IS_TEST = location.pathname.split("/").indexOf("test") !== -1;
   var DATA_NS = IS_TEST ? "test/" : "";
-  /* Lifecycle gas tags (TEST first): gas icons always show on parked carts, a
-     cart's gas mark clears once it's erased (sold), no 48h reset, and carts
-     parked 2+ days show their age. */
-  var LIFECYCLE_GAS = IS_TEST;
+  /* Lifecycle gas tags: gas icons always show on parked carts, a cart's gas
+     mark clears once it's erased (sold), no 48h reset, and carts parked 2+
+     days show their age. (false = the old 48h gas-round behavior.) */
+  var LIFECYCLE_GAS = true;
 
   var LKEY = "griff-cart-tracker";
   var cloud = false;   // becomes true once Firebase is connected
