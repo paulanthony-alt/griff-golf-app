@@ -303,6 +303,8 @@
   .gas-ind svg { width: 100%; height: 100%; display: block; fill: currentColor; }
   .gas-ind.gassed { color: #2e9e3f; }
   .gas-ind.needs { color: #d12c1f; }
+  .age-ind { position: absolute; bottom: 1px; left: 3px; font-size: 9px; font-weight: 700; line-height: 1; color: #b26a00; display: none; pointer-events: none; }
+  .age-ind.show { display: block; }
 
   .lot-scroll { overflow-x: auto; padding-bottom: 4px; }
   .lot {
@@ -595,16 +597,22 @@
      "test" branch in Firebase so testing never touches the real staff board. */
   var IS_TEST = location.pathname.split("/").indexOf("test") !== -1;
   var DATA_NS = IS_TEST ? "test/" : "";
+  /* Lifecycle gas tags (TEST first): gas icons always show on parked carts, a
+     cart's gas mark clears once it's erased (sold), no 48h reset, and carts
+     parked 2+ days show their age. */
+  var LIFECYCLE_GAS = IS_TEST;
 
   var LKEY = "griff-cart-tracker";
   var cloud = false;   // becomes true once Firebase is connected
   var fb = null;       // Firebase helpers, filled in on connect
-  var state = cloudConfigured ? { parking: {}, gas: {}, broken: {}, pending: {}, side: "", gasStart: 0 } : loadLocal();
+  var state = cloudConfigured ? { parking: {}, gas: {}, broken: {}, pending: {}, side: "", gasStart: 0, aging: {} } : loadLocal();
 
   /* element maps so remote updates can re-render the board live */
   var spotInputs = {};
   var spotCells = {};
   var spotGasInd = {};
+  var spotAgeInd = {};
+  var boardLoaded = !cloudConfigured; // don't reconcile ages until the board has loaded
   var gasButtons = {};
 
   /* connection badge in the header */
@@ -619,9 +627,9 @@
   function loadLocal() {
     try {
       var s = JSON.parse(localStorage.getItem(LKEY));
-      if (s && s.parking && s.gas) { if (!s.broken) s.broken = {}; if (!s.pending) s.pending = {}; if (!s.side) s.side = ""; if (!s.gasStart) s.gasStart = 0; return s; }
+      if (s && s.parking && s.gas) { if (!s.broken) s.broken = {}; if (!s.pending) s.pending = {}; if (!s.side) s.side = ""; if (!s.gasStart) s.gasStart = 0; if (!s.aging) s.aging = {}; return s; }
     } catch (e) {}
-    return { parking: {}, gas: {}, broken: {}, pending: {}, side: "", gasStart: 0 };
+    return { parking: {}, gas: {}, broken: {}, pending: {}, side: "", gasStart: 0, aging: {} };
   }
   function saveLocal() {
     try { localStorage.setItem(LKEY, JSON.stringify(state)); } catch (e) {}
@@ -665,8 +673,9 @@
     if (gasButtons[num]) gasButtons[num].classList.toggle("done", !!on);
     updateSummary();
   }
-  function restoreParkingAll(pk, bk) {
+  function restoreParkingAll(pk, bk, ag) {
     state.parking = {}; for (var k in pk) state.parking[k] = pk[k];
+    if (ag) { state.aging = {}; for (var a in ag) state.aging[a] = ag[a]; writePath("aging", Object.keys(ag).length ? ag : null); }
     state.broken = {}; for (var j in bk) state.broken[j] = bk[j];
     if (cloud) { try {
       fb.set(fb.ref(fb.db, DATA_NS + "board/parking"), Object.keys(pk).length ? pk : null);
@@ -678,7 +687,7 @@
     state.gas = {}; for (var k in g) state.gas[k] = g[k];
     if (cloud) { try { fb.set(fb.ref(fb.db, DATA_NS + "board/gas"), Object.keys(g).length ? g : null); } catch (e) {} }
     else saveLocal();
-    if (Object.keys(state.gas).length && !state.gasStart) { state.gasStart = Date.now(); writePath("gasStart", state.gasStart); }
+    if (!LIFECYCLE_GAS && Object.keys(state.gas).length && !state.gasStart) { state.gasStart = Date.now(); writePath("gasStart", state.gasStart); }
     applyState();
   }
 
@@ -811,13 +820,21 @@
     gi.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19.77 7.23l.01-.01-3.72-3.72L15 4.56l2.11 2.11c-.94.36-1.61 1.26-1.61 2.33 0 1.38 1.12 2.5 2.5 2.5.36 0 .69-.08 1-.21v7.21c0 .55-.45 1-1 1s-1-.45-1-1V14c0-1.1-.9-2-2-2h-1V5c0-1.1-.9-2-2-2H6c-1.1 0-2 .9-2 2v16h10v-7.5h1.5v5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V9c0-.69-.28-1.32-.73-1.77zM12 10H6V5h6v5z"/></svg>';
     cell.appendChild(gi);
     spotGasInd[id] = gi;
+    var ai = document.createElement("span");
+    ai.className = "age-ind";
+    cell.appendChild(ai);
+    spotAgeInd[id] = ai;
     return cell;
   }
 
-  // gas-pump icons appear only while a gas round is underway (≥1 cart marked);
-  // green = this parked cart is gassed, red = parked but not yet gassed (test app)
+  // green pump = this parked cart is gassed, red = parked but not yet gassed.
+  // Lifecycle mode: always shown on parked carts (+ age label after 2 days);
+  // otherwise only while a gas round is underway (≥1 cart marked).
+  var DAY_MS = 24 * 60 * 60 * 1000;
+  var AGE_SHOW_DAYS = 2;
   function refreshGasIcons() {
-    var active = Object.keys(state.gas).length > 0;
+    var active = LIFECYCLE_GAS || Object.keys(state.gas).length > 0;
+    var now = Date.now();
     Object.keys(spotInputs).forEach(function (id) {
       var el = spotGasInd[id]; if (!el) return;
       var num = state.parking[id];
@@ -829,7 +846,53 @@
       } else {
         el.classList.remove("show", "gassed", "needs");
       }
+      var ae = spotAgeInd[id]; if (!ae) return;
+      var ag = LIFECYCLE_GAS && num && state.aging && state.aging[agingKey(num)];
+      var days = ag && ag.s ? Math.floor((now - ag.s) / DAY_MS) : 0;
+      if (days >= AGE_SHOW_DAYS) {
+        ae.textContent = days + "d";
+        ae.title = "Parked since " + new Date(ag.s).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        ae.classList.add("show");
+      } else {
+        ae.textContent = ""; ae.removeAttribute("title");
+        ae.classList.remove("show");
+      }
     });
+  }
+
+  /* ---------- Cart ages (how long each cart number has sat in the lot) ----------
+     board/aging/<cart#> = { s: parked-since ms, g: ms it left the lot (only
+     set when cleared by hand, so a quick move keeps its age) }. */
+  var MOVE_GRACE = 15 * 60 * 1000; // re-parked within 15 min = a move, not a new park
+  function agingKey(num) {
+    var k = String(num).trim();
+    return /^[A-Za-z0-9 _-]+$/.test(k) ? k : "";
+  }
+  function isParked(num) {
+    for (var id in state.parking) if (state.parking[id] === num) return true;
+    return false;
+  }
+  function reconcileAging() {
+    if (!LIFECYCLE_GAS || !boardLoaded) return;
+    if (!state.aging) state.aging = {};
+    var now = Date.now(), parked = {};
+    for (var id in state.parking) { var k = agingKey(state.parking[id]); if (k) parked[k] = true; }
+    for (var pk in parked) {
+      var e = state.aging[pk];
+      if (!e || !e.s) { state.aging[pk] = { s: now }; writePath("aging/" + pk, state.aging[pk]); }
+      else if (e.g) {
+        // back in the lot: a quick move keeps its age, otherwise it's a fresh park
+        state.aging[pk] = (now - e.g < MOVE_GRACE) ? { s: e.s } : { s: now };
+        writePath("aging/" + pk, state.aging[pk]);
+      }
+    }
+    for (var ak in state.aging) {
+      if (parked[ak]) continue;
+      var a = state.aging[ak];
+      if (!a || !a.g) { state.aging[ak] = { s: (a && a.s) || now, g: now }; writePath("aging/" + ak, state.aging[ak]); }
+      else if (now - a.g >= MOVE_GRACE) { delete state.aging[ak]; removePath("aging/" + ak); }
+    }
+    refreshGasIcons(); // also rolls the day counts over
   }
 
   var lotMain = document.getElementById("lot-main");
@@ -880,13 +943,13 @@
           delete state.gas[num];
           btn.classList.remove("done");
           removePath("gas/" + num);
-          if (Object.keys(state.gas).length === 0) { state.gasStart = 0; removePath("gasStart"); }
+          if (!LIFECYCLE_GAS && Object.keys(state.gas).length === 0) { state.gasStart = 0; removePath("gasStart"); }
         } else {
           state.gas[num] = true;
           btn.classList.add("done");
           writePath("gas/" + num, true);
           queueGasAlert(num);
-          if (wasEmpty) { state.gasStart = Date.now(); writePath("gasStart", state.gasStart); }
+          if (wasEmpty && !LIFECYCLE_GAS) { state.gasStart = Date.now(); writePath("gasStart", state.gasStart); }
         }
         updateSummary();
         setUndo(function () { restoreGas(num, wasDone); });
@@ -928,7 +991,9 @@
     } else {
       var prevParking = {}; for (var ppk in state.parking) prevParking[ppk] = state.parking[ppk];
       var prevBrokenMap = {}; for (var pbk in state.broken) prevBrokenMap[pbk] = state.broken[pbk];
+      var prevAging = {}; for (var pak in (state.aging || {})) prevAging[pak] = state.aging[pak];
       state.parking = {};
+      if (LIFECYCLE_GAS) { state.aging = {}; removePath("aging"); }
       state.broken = {};
       state.pending = {};
       for (var et in eraseTimers) clearTimeout(eraseTimers[et]);
@@ -941,7 +1006,7 @@
       removePath("broken");
       removePath("pending");
       updateLotSummary();
-      setUndo(function () { restoreParkingAll(prevParking, prevBrokenMap); });
+      setUndo(function () { restoreParkingAll(prevParking, prevBrokenMap, LIFECYCLE_GAS ? prevAging : null); });
     }
     disarmClear();
   });
@@ -973,8 +1038,10 @@
       broken: data.broken || {},
       pending: data.pending || {},
       side: data.side || "",
-      gasStart: data.gasStart || 0
+      gasStart: data.gasStart || 0,
+      aging: data.aging || {}
     };
+    boardLoaded = true;
     applyState();
     sweepPending();
     renderSide();
@@ -1025,6 +1092,7 @@
   }
   function commitErase(id) {
     clearTimeout(eraseTimers[id]); delete eraseTimers[id];
+    var soldNum = state.parking[id];
     delete state.parking[id];
     delete state.broken[id];
     delete state.pending[id];
@@ -1033,6 +1101,18 @@
     removePath("pending/" + id);
     if (spotInputs[id]) spotInputs[id].value = "";
     if (spotCells[id]) { spotCells[id].classList.remove("pending"); spotCells[id].classList.remove("broken"); }
+    // Sold: the cart is out of the lot, so its gas tag + age come off —
+    // unless that same number is still parked in another spot.
+    if (LIFECYCLE_GAS && soldNum && !isParked(soldNum)) {
+      if (state.gas[soldNum]) {
+        delete state.gas[soldNum];
+        removePath("gas/" + soldNum);
+        if (gasButtons[soldNum]) gasButtons[soldNum].classList.remove("done");
+        updateSummary();
+      }
+      var sk = agingKey(soldNum);
+      if (sk && state.aging && state.aging[sk]) { delete state.aging[sk]; removePath("aging/" + sk); }
+    }
     updateLotSummary();
   }
   function sweepPending() {
@@ -1054,10 +1134,15 @@
     updateSummary(); // also hides the gas icons since the list is now empty
   }
   function checkGasExpiry() {
+    if (LIFECYCLE_GAS) {
+      // no timed reset; tidy up any leftover round timestamp
+      if (state.gasStart) { state.gasStart = 0; removePath("gasStart"); }
+      return;
+    }
     if (state.gasStart && Date.now() - state.gasStart >= GAS_TTL) clearGasList();
   }
-  setInterval(sweepPending, 5000);
-  window.__griffSweep = sweepPending; // testing hook
+  setInterval(function () { sweepPending(); reconcileAging(); }, 5000);
+  window.__griffSweep = function () { sweepPending(); reconcileAging(); }; // testing hook
 
   /* =========================================================
      Team chat + alerts (shop <-> range)
@@ -1478,6 +1563,7 @@
       /* SDK blocked or offline — stay in local mode; the app still works
          on this device, it just won't sync until it can reach Firebase. */
       setConn("local");
+      boardLoaded = true;
     });
   }
 })();
@@ -1521,6 +1607,5 @@
   });
 })();
 </script>
-
 </body>
 </html>
