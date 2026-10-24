@@ -1384,8 +1384,8 @@
     try { document.title = "TEST · The Griff Cart Tracker"; } catch (e) {}
   }
   // ===== Seasonal themes — automatic by date (live + test); temporary =====
-  // Halloween: Oct 20–31. Thanksgiving: Nov 1 through Thanksgiving Day (4th Thu),
-  // then back to normal. Normal otherwise.
+  // Thanksgiving: Nov 1 through Thanksgiving Day (4th Thu), then normal.
+  // (Halloween is no longer auto-scheduled; still previewable via ?season=halloween.)
   // Preview/override: add ?season=thanksgiving (or =halloween, or = for normal).
   function thanksgivingDay(y) {
     var firstDow = new Date(y, 10, 1).getDay();  // weekday of Nov 1
@@ -1395,7 +1395,6 @@
     try { var q = new URLSearchParams(location.search).get("season"); if (q !== null) return q; } catch (e) {}
     try { var ls = localStorage.getItem("griff-season"); if (ls) return ls; } catch (e) {}
     var n = new Date(), m = n.getMonth(), d = n.getDate();
-    if (m === 9 && d >= 20) return "halloween";
     if (m === 10 && d <= thanksgivingDay(n.getFullYear())) return "thanksgiving";
     return "";
   }
